@@ -217,7 +217,7 @@ export default function AssetDetailPage() {
           </motion.div>
 
           {/* Quick stats */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+          {/*<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
             className="glass-card p-5">
             <h3 className="section-title text-base mb-4">Asset Health</h3>
             <div className="space-y-3">
@@ -238,7 +238,7 @@ export default function AssetDetailPage() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </motion.div>*/}
 
           {/* Alert if maintenance due */}
           {displayAsset.maintenance_date && new Date(displayAsset.maintenance_date) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) && (

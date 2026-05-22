@@ -85,7 +85,7 @@ export default function LoginPage() {
               style={{ background: 'var(--gradient-brand)', boxShadow: 'var(--shadow-glow)' }}>
               <Layers size={28} className="text-white" />
             </div>
-            <h1 className="text-3xl font-display font-bold gradient-text">AssetVault</h1>
+            <h1 className="text-3xl font-display font-bold gradient-text">RTI-INVENTORY</h1>
             <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
               Enterprise Asset Management System
             </p>

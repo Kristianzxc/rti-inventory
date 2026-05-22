@@ -84,7 +84,7 @@ export default function ITDashboardPage() {
           className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
           style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}>
           <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-sm font-medium text-cyan-400">IT Systems Online</span>
+          {/*<span className="text-sm font-medium text-cyan-400">IT Systems Online</span>*/}
         </motion.div>
       </div>
 

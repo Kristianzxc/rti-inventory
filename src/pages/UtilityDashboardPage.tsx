@@ -87,7 +87,7 @@ export default function UtilityDashboardPage() {
           className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
           style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-sm font-medium text-emerald-400">Utility Systems Online</span>
+          {/*<span className="text-sm font-medium text-emerald-400">Utility Systems Online</span>*/}
         </motion.div>
       </div>
 
