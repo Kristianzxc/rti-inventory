@@ -1,0 +1,418 @@
+import { useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
+import {
+  Plus, Search, Filter, Download, Package,
+  ChevronLeft, ChevronRight, X, Eye, Pencil, Trash2
+} from 'lucide-react'
+import DashboardLayout from '@/components/layouts/DashboardLayout'
+import { assetService, buildingService, categoryService } from '@/services'
+import { formatDate, getStatusColor, getConditionBadge, getCategoryIcon, classNames } from '@/utils'
+import { useAuth } from '@/features/auth/AuthContext'
+import type { FilterState, Asset } from '@/types'
+import AssetFormModal from '@/components/assets/AssetFormModal'
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import { toast } from 'sonner'
+
+export default function AssetsPage() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { isAdmin } = useAuth()
+
+  const [page, setPage] = useState(1)
+  const [showFilters, setShowFilters] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editAsset, setEditAsset] = useState<Asset | null>(null)
+  const [deleteAsset, setDeleteAsset] = useState<Asset | null>(null)
+  const [filters, setFilters] = useState<FilterState>({
+    search: searchParams.get('search') || '',
+    building: '',
+    category: '',
+    status: '',
+    condition: '',
+    dateFrom: '',
+    dateTo: '',
+  })
+
+  const PAGE_SIZE = 10
+
+  const { data: assetsData, isLoading, refetch } = useQuery({
+    queryKey: ['assets', filters, page],
+    queryFn: () => assetService.getAll(filters, page, PAGE_SIZE),
+  })
+
+  const { data: buildings = [] } = useQuery({
+    queryKey: ['buildings'],
+    queryFn: () => buildingService.getAll(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  })
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => categoryService.getAll(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  })
+
+  const assets = assetsData?.data || []
+  const total = assetsData?.count || 0
+  const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  const handleDelete = async () => {
+    if (!deleteAsset) return
+    try {
+      await assetService.delete(deleteAsset.id)
+      toast.success('Asset deleted successfully')
+      refetch()
+      setDeleteAsset(null)
+    } catch {
+      toast.error('Failed to delete asset')
+    }
+  }
+
+  return (
+    <DashboardLayout title="Assets">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="page-title">Asset Inventory</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            {total} total assets
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={classNames('btn-secondary', showFilters && 'border-blue-500/50 text-blue-400')}
+          >
+            <Filter size={15} />
+            Filters
+            {Object.values(filters).some(v => v) && (
+              <span className="w-2 h-2 rounded-full bg-blue-400" />
+            )}
+          </button>
+          <button className="btn-secondary">
+            <Download size={15} />
+            Export
+          </button>
+          {isAdmin && (
+            <button onClick={() => setShowAddModal(true)} className="btn-primary">
+              <Plus size={15} />
+              Add Asset
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative mb-4">
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+        <input
+          value={filters.search}
+          onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+          className="input-field pl-11"
+          placeholder="Search by name, asset code, serial number, assigned user..."
+        />
+        {filters.search && (
+          <button onClick={() => setFilters(f => ({ ...f, search: '' }))}
+            className="absolute right-4 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--text-muted)' }}>
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      {/* Filters panel */}
+      {showFilters && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="glass-card p-4 mb-4"
+        >
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div>
+              <label className="label-text block mb-1.5">Building</label>
+              <select
+                value={filters.building}
+                onChange={e => setFilters(f => ({ ...f, building: e.target.value }))}
+                className="select-field"
+              >
+                <option value="">All Buildings</option>
+                {buildings.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label-text block mb-1.5">Category</label>
+              <select
+                value={filters.category}
+                onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
+                className="select-field"
+              >
+                <option value="">All Categories</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label-text block mb-1.5">Status</label>
+              <select
+                value={filters.status}
+                onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+                className="select-field"
+              >
+                <option value="">All Status</option>
+                {['active', 'inactive', 'maintenance', 'retired'].map(s => (
+                  <option key={s} value={s} className="capitalize">{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label-text block mb-1.5">Condition</label>
+              <select
+                value={filters.condition}
+                onChange={e => setFilters(f => ({ ...f, condition: e.target.value }))}
+                className="select-field"
+              >
+                <option value="">All Conditions</option>
+                {['excellent', 'good', 'fair', 'poor'].map(c => (
+                  <option key={c} value={c} className="capitalize">{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label-text block mb-1.5">Date From</label>
+              <input
+                type="date"
+                value={filters.dateFrom}
+                onChange={e => setFilters(f => ({ ...f, dateFrom: e.target.value }))}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="label-text block mb-1.5">Date To</label>
+              <input
+                type="date"
+                value={filters.dateTo}
+                onChange={e => setFilters(f => ({ ...f, dateTo: e.target.value }))}
+                className="input-field"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end mt-3">
+            <button
+              onClick={() => setFilters({ search: '', building: '', category: '', status: '', condition: '', dateFrom: '', dateTo: '' })}
+              className="btn-secondary text-xs py-1.5 px-3"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Table */}
+      <div className="glass-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr style={{ background: 'rgba(15,23,42,0.5)' }}>
+                {['Asset', 'Code', 'Category', 'Building / Room', 'Status', 'Condition', 'Assigned To', 'Added', 'Actions'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
+                    style={{ color: 'var(--text-muted)' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    {Array.from({ length: 9 }).map((_, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="skeleton h-4 w-full rounded" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (assets.length > 0 ? assets : DEMO_ASSETS).map((asset: any) => (
+                <tr
+                  key={asset.id}
+                  className="table-row-hover"
+                  style={{ borderTop: '1px solid var(--border-subtle)' }}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      {asset.image_url ? (
+                        <img src={asset.image_url} alt={asset.name}
+                          className="w-9 h-9 rounded-lg object-cover" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg"
+                          style={{ background: 'var(--bg-tertiary)' }}>
+                          {getCategoryIcon(asset.category?.name || asset.categoryName || '')}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{asset.name}</p>
+                        {asset.serial_number && (
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>S/N: {asset.serial_number}</p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="chip font-mono text-xs">{asset.asset_code || asset.code || '—'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {asset.category?.name || asset.categoryName || '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {asset.building?.name || asset.buildingName || '—'}
+                    </p>
+                    {(asset.floor_room || asset.floorRoom) && (
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{asset.floor_room || asset.floorRoom}</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={getStatusColor(asset.status)} style={{ textTransform: 'capitalize' }}>
+                      {asset.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`badge ${getConditionBadge(asset.condition)}`} style={{ textTransform: 'capitalize' }}>
+                      {asset.condition || '—'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {asset.assigned_to || asset.assignedTo || '—'}
+                  </td>
+                  <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                    {formatDate(asset.created_at)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => navigate(`/assets/${asset.id}`)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-blue-500/20"
+                        style={{ color: 'var(--text-muted)' }}
+                        title="View"
+                      >
+                        <Eye size={14} />
+                      </button>
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => setEditAsset(asset)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-amber-500/20"
+                            style={{ color: 'var(--text-muted)' }}
+                            title="Edit"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteAsset(asset)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-rose-500/20"
+                            style={{ color: 'var(--text-muted)' }}
+                            title="Delete"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} assets
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+              >
+                <ChevronLeft size={15} />
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={classNames(
+                    'w-8 h-8 rounded-lg text-sm font-medium transition-colors',
+                    page === p ? 'text-white' : ''
+                  )}
+                  style={{
+                    background: page === p ? 'var(--gradient-brand)' : 'var(--bg-secondary)',
+                    color: page === p ? 'white' : 'var(--text-secondary)',
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && assets.length === 0 && (
+          <div className="py-16 flex flex-col items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+            <Package size={40} className="mb-3 opacity-30" />
+            <p className="font-medium">No assets found</p>
+            <p className="text-sm mt-1">Try adjusting your search or filters</p>
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      {(showAddModal || editAsset) && (
+        <AssetFormModal
+          asset={editAsset}
+          onClose={() => { setShowAddModal(false); setEditAsset(null) }}
+          onSuccess={() => { setShowAddModal(false); setEditAsset(null); refetch() }}
+          buildings={buildings}
+          categories={categories}
+        />
+      )}
+      {deleteAsset && (
+        <DeleteConfirmModal
+          title="Delete Asset"
+          message={`Are you sure you want to delete "${deleteAsset.name}"? This action cannot be undone.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteAsset(null)}
+        />
+      )}
+    </DashboardLayout>
+  )
+}
+
+const DEMO_ASSETS = [
+  { id: '1', name: 'Dell Latitude 5520', code: 'AST-001', asset_code: 'AST-001', categoryName: 'Laptops', buildingName: 'Building A', floorRoom: 'Room 201', status: 'active', condition: 'good', assignedTo: 'John Doe', created_at: new Date().toISOString() },
+  { id: '2', name: 'HP ProDesk 600 G6', code: 'AST-002', asset_code: 'AST-002', categoryName: 'PC Sets', buildingName: 'Building B', floorRoom: 'Lab 1', status: 'active', condition: 'excellent', assignedTo: 'Maria Santos', created_at: new Date(Date.now() - 86400000).toISOString() },
+  { id: '3', name: 'Cisco Catalyst 2960', code: 'AST-003', asset_code: 'AST-003', categoryName: 'Networking Devices', buildingName: 'Building A', floorRoom: 'Server Room', status: 'maintenance', condition: 'fair', assignedTo: 'IT Dept', created_at: new Date(Date.now() - 172800000).toISOString() },
+  { id: '4', name: 'LG 27" UltraWide', code: 'AST-004', asset_code: 'AST-004', categoryName: 'Monitors', buildingName: 'Building C', floorRoom: 'Office 3', status: 'active', condition: 'excellent', assignedTo: 'Carlo Reyes', created_at: new Date(Date.now() - 259200000).toISOString() },
+  { id: '5', name: 'Dell PowerEdge R740', code: 'AST-005', asset_code: 'AST-005', categoryName: 'Servers', buildingName: 'Building A', floorRoom: 'Server Room', status: 'active', condition: 'good', assignedTo: 'IT Dept', created_at: new Date(Date.now() - 345600000).toISOString() },
+  { id: '6', name: 'Canon imageRUNNER', code: 'AST-006', asset_code: 'AST-006', categoryName: 'Printers', buildingName: 'Building B', floorRoom: 'Office 1', status: 'inactive', condition: 'poor', assignedTo: 'Admin', created_at: new Date(Date.now() - 432000000).toISOString() },
+]
