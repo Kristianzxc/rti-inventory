@@ -172,10 +172,10 @@ export default function CategoriesPage() {
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{cat.name}</p>
               <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
                 style={{
-                  background: activeTab === 'it' ? 'rgba(6,182,212,0.1)' : 'rgba(16,185,129,0.1)',
-                  color:       activeTab === 'it' ? '#06b6d4' : '#10b981',
+                  background: cat.type === 'it' ? 'rgba(6,182,212,0.1)' : 'rgba(16,185,129,0.1)',
+                  color:       cat.type === 'it' ? '#06b6d4' : '#10b981',
                 }}>
-                {activeTab === 'it' ? 'IT' : 'Utility'}
+                {cat.type === 'it' ? 'IT' : 'Utility'}
               </span>
             </motion.div>
           ))}

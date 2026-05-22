@@ -240,7 +240,7 @@ export default function AssetsPage() {
                     ))}
                   </tr>
                 ))
-              ) : (assets.length > 0 ? assets : DEMO_ASSETS).map((asset: any) => (
+              ) : assets.map((asset: any) => (
                 <tr
                   key={asset.id}
                   className="table-row-hover"
@@ -390,11 +390,10 @@ export default function AssetsPage() {
       {(showAddModal || editAsset) && (
         <AssetFormModal
           asset={editAsset}
-          onClose={() => { setShowAddModal(false); setEditAsset(null) }}
-          onSuccess={() => { setShowAddModal(false); setEditAsset(null); refetch() }}
+          onClose={() => { setShowAddModal(false); setEditAsset(null) } }
+          onSuccess={() => { setShowAddModal(false); setEditAsset(null); refetch() } }
           buildings={buildings}
-          categories={categories}
-        />
+          categories={categories} domain={'it'}        />
       )}
       {deleteAsset && (
         <DeleteConfirmModal
@@ -407,12 +406,3 @@ export default function AssetsPage() {
     </DashboardLayout>
   )
 }
-
-const DEMO_ASSETS = [
-  { id: '1', name: 'Dell Latitude 5520', code: 'AST-001', asset_code: 'AST-001', categoryName: 'Laptops', buildingName: 'Building A', floorRoom: 'Room 201', status: 'active', condition: 'good', assignedTo: 'John Doe', created_at: new Date().toISOString() },
-  { id: '2', name: 'HP ProDesk 600 G6', code: 'AST-002', asset_code: 'AST-002', categoryName: 'PC Sets', buildingName: 'Building B', floorRoom: 'Lab 1', status: 'active', condition: 'excellent', assignedTo: 'Maria Santos', created_at: new Date(Date.now() - 86400000).toISOString() },
-  { id: '3', name: 'Cisco Catalyst 2960', code: 'AST-003', asset_code: 'AST-003', categoryName: 'Networking Devices', buildingName: 'Building A', floorRoom: 'Server Room', status: 'maintenance', condition: 'fair', assignedTo: 'IT Dept', created_at: new Date(Date.now() - 172800000).toISOString() },
-  { id: '4', name: 'LG 27" UltraWide', code: 'AST-004', asset_code: 'AST-004', categoryName: 'Monitors', buildingName: 'Building C', floorRoom: 'Office 3', status: 'active', condition: 'excellent', assignedTo: 'Carlo Reyes', created_at: new Date(Date.now() - 259200000).toISOString() },
-  { id: '5', name: 'Dell PowerEdge R740', code: 'AST-005', asset_code: 'AST-005', categoryName: 'Servers', buildingName: 'Building A', floorRoom: 'Server Room', status: 'active', condition: 'good', assignedTo: 'IT Dept', created_at: new Date(Date.now() - 345600000).toISOString() },
-  { id: '6', name: 'Canon imageRUNNER', code: 'AST-006', asset_code: 'AST-006', categoryName: 'Printers', buildingName: 'Building B', floorRoom: 'Office 1', status: 'inactive', condition: 'poor', assignedTo: 'Admin', created_at: new Date(Date.now() - 432000000).toISOString() },
-]

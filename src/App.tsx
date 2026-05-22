@@ -26,7 +26,7 @@ import { NotificationsPage, ProfilePage } from '@/pages/NotificationsAndProfile'
 import ReportsPage      from '@/pages/ReportsPage'
 import AnalyticsPage    from '@/pages/AnalyticsPage'
 import UsersPage        from '@/pages/UsersPage'
-import CategoriesPage   from '@/pages/CategoriesPage'
+import CategoriesPage   from '@/pages/Categoriespage'
 
 // Utility
 import UtilityReportsPage from '@/pages/UtilityReportsPage'

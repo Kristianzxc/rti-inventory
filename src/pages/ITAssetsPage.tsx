@@ -7,7 +7,6 @@ import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { assetService, buildingService, categoryService } from '@/services'
 import { formatDate, getStatusColor, getConditionBadge, getCategoryIcon, classNames } from '@/utils'
 import { useAuth } from '@/features/auth/AuthContext'
-import { IT_CATEGORIES } from '@/types'
 import type { FilterState, Asset } from '@/types'
 import AssetFormModal from '@/components/assets/AssetFormModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -41,7 +40,7 @@ export default function ITAssetsPage() {
   const { data: buildings = [] } = useQuery({ queryKey: ['buildings'], queryFn: () => buildingService.getAll(), staleTime: 0, refetchOnWindowFocus: true })
   const { data: allCategories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => categoryService.getAll(), staleTime: 0, refetchOnWindowFocus: true })
 
-  const itCategories = allCategories.filter((c: any) => IT_CATEGORIES.includes(c.name))
+  const itCategories = allCategories.filter((c: any) => c.type === 'it')
   const assets = assetsData?.data || []
   const total = assetsData?.count || 0
   const totalPages = Math.ceil(total / PAGE_SIZE)

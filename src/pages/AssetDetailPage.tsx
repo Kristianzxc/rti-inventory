@@ -261,10 +261,9 @@ export default function AssetDetailPage() {
         <AssetFormModal
           asset={displayAsset as any}
           onClose={() => setShowEdit(false)}
-          onSuccess={() => { setShowEdit(false); qc.invalidateQueries({ queryKey: ['asset', id] }) }}
+          onSuccess={() => { setShowEdit(false); qc.invalidateQueries({ queryKey: ['asset', id] }) } }
           buildings={[]}
-          categories={[]}
-        />
+          categories={[]} domain={'it'}        />
       )}
       {showDelete && (
         <DeleteConfirmModal

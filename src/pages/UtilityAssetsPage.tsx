@@ -7,7 +7,6 @@ import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { assetService, buildingService, categoryService } from '@/services'
 import { getStatusColor, getConditionBadge, formatDate, getCategoryIcon } from '@/utils'
 import { useAuth } from '@/features/auth/AuthContext'
-import { UTILITY_CATEGORIES } from '@/types'
 import type { Asset } from '@/types'
 import AssetFormModal from '@/components/assets/AssetFormModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -53,7 +52,7 @@ export default function UtilityAssetsPage() {
     refetchOnWindowFocus: true,
   })
 
-  const utilityCategories = allCategories.filter((c: any) => UTILITY_CATEGORIES.includes(c.name))
+  const utilityCategories = allCategories.filter((c: any) => c.type === 'utility')
   const assets: Asset[] = assetsData?.data || []
 
   const handleDelete = async () => {

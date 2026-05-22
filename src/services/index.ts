@@ -58,7 +58,7 @@ export const assetService = {
     return data as Asset[]
   },
 
-  async create(formData: any) {
+  async create(formData: any, p0: any, imageFile: File | null) {
     const { data: { user } } = await supabase.auth.getUser()
     const userId = user?.id
     const { data, error } = await supabase
@@ -69,7 +69,7 @@ export const assetService = {
     return data as Asset
   },
 
-  async update(id: string, formData: any) {
+  async update(id: string, formData: any, imageFile: File | null) {
     const { data, error } = await supabase
       .from('assets')
       .update({ ...formData, updated_at: new Date().toISOString() })
