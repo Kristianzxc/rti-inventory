@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Cpu, Activity, Wrench, Archive, Building2, Clock, Monitor } from 'lucide-react'
+import { Cpu, Activity, Wrench, Archive, Building2, Clock, AlertTriangle } from 'lucide-react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import StatCard from '@/components/dashboard/StatCard'
 import { AssetGrowthChart, AssetsByBuildingChart, AssetStatusPieChart, MaintenanceTrendsChart } from '@/components/charts'
@@ -39,11 +39,11 @@ export default function ITDashboardPage() {
     refetchOnWindowFocus: true,
   })
 
-  const { data: monitorCount } = useQuery({
-    queryKey: ['it-monitor-count'],
+  const { data: defectiveCount } = useQuery({
+    queryKey: ['it-defective-count'],
     queryFn: async () => {
-      const res = await assetService.getByDomain('it', { category: 'Monitors' }, 1, 1)
-      return res?.count || 0
+      const res = await assetService.getDashboardStats('it')
+      return Math.max(0, (res?.totalAssets || 0) - (res?.activeAssets || 0) - (res?.maintenanceAssets || 0) - (res?.disposedAssets || 0))
     },
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -52,17 +52,17 @@ export default function ITDashboardPage() {
   const statusPie = [
     { name: 'Active',      value: stats?.activeAssets      || 0 },
     { name: 'Maintenance', value: stats?.maintenanceAssets || 0 },
-    { name: 'Retired',     value: stats?.retiredAssets     || 0 },
-    { name: 'Inactive',    value: Math.max(0, (stats?.totalAssets || 0) - (stats?.activeAssets || 0) - (stats?.maintenanceAssets || 0) - (stats?.retiredAssets || 0)) },
+    { name: 'Disposed',    value: stats?.disposedAssets    || 0 },
+    { name: 'Defective',   value: Math.max(0, (stats?.totalAssets || 0) - (stats?.activeAssets || 0) - (stats?.maintenanceAssets || 0) - (stats?.disposedAssets || 0)) },
   ]
 
   const statCards = [
     { title: 'Total IT Assets',  value: stats?.totalAssets       ?? 0, icon: Cpu,       color: '#06b6d4', gradient: 'linear-gradient(135deg,#06b6d4,#3b82f6)' },
     { title: 'Active',           value: stats?.activeAssets      ?? 0, icon: Activity,  color: '#10b981', gradient: 'linear-gradient(135deg,#10b981,#06b6d4)' },
     { title: 'In Maintenance',   value: stats?.maintenanceAssets ?? 0, icon: Wrench,    color: '#f59e0b', gradient: 'linear-gradient(135deg,#f59e0b,#f97316)' },
-    { title: 'Retired',          value: stats?.retiredAssets     ?? 0, icon: Archive,   color: '#94a3b8', gradient: 'linear-gradient(135deg,#94a3b8,#64748b)' },
+    { title: 'Disposed',         value: stats?.disposedAssets    ?? 0, icon: Archive,   color: '#94a3b8', gradient: 'linear-gradient(135deg,#94a3b8,#64748b)' },
     { title: 'Buildings',        value: stats?.buildingsCount    ?? 0, icon: Building2, color: '#8b5cf6', gradient: 'linear-gradient(135deg,#8b5cf6,#ec4899)' },
-    { title: 'Monitors',         value: monitorCount             ?? 0, icon: Monitor,   color: '#3b82f6', gradient: 'linear-gradient(135deg,#3b82f6,#6366f1)' },
+    { title: 'Defective',        value: defectiveCount           ?? 0, icon: AlertTriangle, color: '#ef4444', gradient: 'linear-gradient(135deg,#ef4444,#f97316)' },
   ]
 
   return (

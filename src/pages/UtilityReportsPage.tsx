@@ -23,8 +23,8 @@ export default function UtilityReportsPage() {
   const statusData = [
     { name: 'Active',      value: stats?.activeAssets      || 0 },
     { name: 'Maintenance', value: stats?.maintenanceAssets || 0 },
-    { name: 'Retired',     value: stats?.retiredAssets     || 0 },
-    { name: 'Inactive',    value: Math.max(0, (stats?.totalAssets || 0) - (stats?.activeAssets || 0) - (stats?.maintenanceAssets || 0) - (stats?.retiredAssets || 0)) },
+    { name: 'Disposed',    value: stats?.disposedAssets    || 0 },
+    { name: 'Defective',   value: Math.max(0, (stats?.totalAssets || 0) - (stats?.activeAssets || 0) - (stats?.maintenanceAssets || 0) - (stats?.disposedAssets || 0)) },
   ]
 
   const summaryCards = [

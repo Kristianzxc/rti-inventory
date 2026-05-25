@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Package, Building2, Users, BarChart3,
   FileText, Settings, Wrench, Layers, ChevronLeft,
-  Bell, Cpu, Armchair, ArrowLeftRight, Tag
+  Bell, Cpu, Armchair, ArrowLeftRight, Tag, PackageCheck
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useUIStore } from '@/store'
@@ -11,11 +11,12 @@ import { classNames } from '@/utils'
 
 // Nav items per domain/role
 const IT_NAV = [
-  { label: 'Dashboard',    icon: LayoutDashboard, path: '/dashboard' },
-  { label: 'IT Assets',    icon: Cpu,             path: '/assets' },
-  { label: 'Buildings',    icon: Building2,       path: '/buildings' },
-  { label: 'Maintenance',  icon: Wrench,          path: '/maintenance' },
-  { label: 'Categories',   icon: Tag,             path: '/categories' },
+  { label: 'Dashboard',       icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'IT Assets',       icon: Cpu,             path: '/assets' },
+  { label: 'Received Items',  icon: PackageCheck,    path: '/received-items' },
+  { label: 'Buildings',       icon: Building2,       path: '/buildings' },
+  { label: 'Maintenance',     icon: Wrench,          path: '/maintenance' },
+  { label: 'Categories',      icon: Tag,             path: '/categories' },
 ]
 
 const IT_ADMIN_EXTRA = [

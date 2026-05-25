@@ -8,8 +8,8 @@ function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { icon: JSX.Element; label: string; color: string; bg: string }> = {
     active:      { icon: <CheckCircle size={14} />, label: 'Active',      color: '#10b981', bg: 'rgba(16,185,129,0.15)' },
     maintenance: { icon: <Wrench size={14} />,      label: 'Maintenance', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
-    inactive:    { icon: <XCircle size={14} />,     label: 'Inactive',    color: '#f43f5e', bg: 'rgba(244,63,94,0.15)' },
-    retired:     { icon: <AlertCircle size={14} />, label: 'Retired',     color: '#94a3b8', bg: 'rgba(148,163,184,0.15)' },
+    defective:   { icon: <XCircle size={14} />,     label: 'Defective',   color: '#f43f5e', bg: 'rgba(244,63,94,0.15)' },
+    disposed:    { icon: <AlertCircle size={14} />, label: 'Disposed',    color: '#94a3b8', bg: 'rgba(148,163,184,0.15)' },
   }
   const c = cfg[status] || cfg.inactive
   return (

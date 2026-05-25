@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { TrendingUp, BarChart3, PieChart, Activity } from 'lucide-react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import {
   AssetGrowthChart, AssetsByBuildingChart,
@@ -69,15 +68,14 @@ export default function AnalyticsPage() {
     { name: 'Inactive',    value: Math.max(0, total - (stats?.activeAssets || 0) - (stats?.maintenanceAssets || 0) - (stats?.retiredAssets || 0)) },
   ]
 
-  const utilRate = total > 0 ? ((stats?.activeAssets || 0) / total * 100).toFixed(1) : '0.0'
+  const utilRate  = total > 0 ? ((stats?.activeAssets      || 0) / total * 100).toFixed(1) : '0.0'
   const maintRate = total > 0 ? ((stats?.maintenanceAssets || 0) / total * 100).toFixed(1) : '0.0'
-  const retireRate = total > 0 ? ((stats?.retiredAssets || 0) / total * 100).toFixed(1) : '0.0'
 
   const kpis = [
-    { label: 'Asset Utilization', value: `${utilRate}%`,  icon: Activity,  color: '#3b82f6' },
-    { label: 'Maintenance Rate',  value: `${maintRate}%`, icon: TrendingUp, color: '#f59e0b' },
-    { label: 'Total Assets',      value: `${total}`,       icon: BarChart3,  color: '#8b5cf6' },
-    { label: 'Retirement Rate',   value: `${retireRate}%`,icon: PieChart,   color: '#10b981' },
+    { label: 'Asset Utilization', value: `${utilRate}%`,                       color: '#3b82f6' },
+    { label: 'Maintenance Rate',  value: `${maintRate}%`,                      color: '#f59e0b' },
+    { label: 'Defective Assets',  value: `${stats?.defectiveAssets ?? 0}`,     color: '#f43f5e' },
+    { label: 'Disposed Assets',   value: `${stats?.disposedAssets  ?? 0}`,     color: '#94a3b8' },
   ]
 
   return (
@@ -93,15 +91,10 @@ export default function AnalyticsPage() {
         {kpis.map((kpi, i) => (
           <motion.div key={kpi.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.06 }} className="glass-card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                {kpi.label}
-              </span>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}20` }}>
-                <kpi.icon size={14} style={{ color: kpi.color }} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Barlow, sans-serif' }}>{kpi.value}</p>
+            <span className="text-xs font-semibold uppercase tracking-wider block mb-3" style={{ color: 'var(--text-muted)' }}>
+              {kpi.label}
+            </span>
+            <p className="text-2xl font-bold" style={{ color: kpi.color, fontFamily: 'Barlow, sans-serif' }}>{kpi.value}</p>
           </motion.div>
         ))}
       </div>

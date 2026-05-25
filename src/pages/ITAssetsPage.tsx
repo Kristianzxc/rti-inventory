@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { Plus, Search, Filter, Cpu, ChevronLeft, ChevronRight, X, Eye, Pencil, Trash2 } from 'lucide-react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { assetService, buildingService, categoryService } from '@/services'
-import { formatDate, getStatusColor, getConditionBadge, getCategoryIcon, classNames } from '@/utils'
+import { formatDate, getStatusColor, getConditionBadge, classNames } from '@/utils'
 import { useAuth } from '@/features/auth/AuthContext'
 import type { FilterState, Asset } from '@/types'
 import AssetFormModal from '@/components/assets/AssetFormModal'
@@ -38,9 +38,13 @@ export default function ITAssetsPage() {
   })
 
   const { data: buildings = [] } = useQuery({ queryKey: ['buildings'], queryFn: () => buildingService.getAll(), staleTime: 0, refetchOnWindowFocus: true })
-  const { data: allCategories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => categoryService.getAll(), staleTime: 0, refetchOnWindowFocus: true })
+  const { data: itCategories = [] } = useQuery({
+    queryKey: ['categories-it'],
+    queryFn: () => categoryService.getByType('it'),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  })
 
-  const itCategories = allCategories.filter((c: any) => c.type === 'it')
   const assets = assetsData?.data || []
   const total = assetsData?.count || 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -50,18 +54,18 @@ export default function ITAssetsPage() {
     try {
       await assetService.delete(deleteAsset.id)
       toast.success('Asset deleted')
-      await qc.invalidateQueries({ queryKey: ['it-assets'] })
-      await qc.invalidateQueries({ queryKey: ['it-dashboard-stats'] })
       setDeleteAsset(null)
+      await qc.refetchQueries({ queryKey: ['it-assets'] })
+      await qc.refetchQueries({ queryKey: ['it-dashboard-stats'] })
     } catch { toast.error('Failed to delete asset') }
   }
 
   const handleSuccess = async () => {
     setShowAddModal(false)
     setEditAsset(null)
-    await qc.invalidateQueries({ queryKey: ['it-assets'] })
-    await qc.invalidateQueries({ queryKey: ['it-dashboard-stats'] })
-    await qc.invalidateQueries({ queryKey: ['recent-it-assets'] })
+    await qc.refetchQueries({ queryKey: ['it-assets'] })
+    await qc.refetchQueries({ queryKey: ['it-dashboard-stats'] })
+    await qc.refetchQueries({ queryKey: ['recent-it-assets'] })
   }
 
   return (
@@ -171,9 +175,10 @@ export default function ITAssetsPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           {asset.image_url
-                            ? <img src={asset.image_url} alt={asset.name} className="w-9 h-9 rounded-lg object-cover" />
-                            : <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg" style={{ background: 'rgba(6,182,212,0.1)' }}>
-                                {getCategoryIcon(asset.category?.name || asset.categoryName || '')}
+                            ? <img src={asset.image_url} alt={asset.name} className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                            : <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                                style={{ background: 'rgba(6,182,212,0.12)', color: '#06b6d4', fontSize: 13, fontWeight: 700 }}>
+                                {asset.name?.[0]?.toUpperCase() || '?'}
                               </div>
                           }
                           <div>

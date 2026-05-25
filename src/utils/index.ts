@@ -35,9 +35,9 @@ export function timeAgo(dateStr: string) {
 export function getStatusColor(status: AssetStatus) {
   const colors: Record<AssetStatus, string> = {
     active: 'badge-active',
-    inactive: 'badge-inactive',
+    defective: 'badge-inactive',
     maintenance: 'badge-maintenance',
-    retired: 'badge-retired',
+    disposed: 'badge-retired',
   }
   return colors[status] || 'badge-inactive'
 }
@@ -110,9 +110,9 @@ export function downloadBlob(blob: Blob, filename: string) {
 
 export const ASSET_STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
+  { value: 'defective', label: 'Defective' },
   { value: 'maintenance', label: 'Maintenance' },
-  { value: 'retired', label: 'Retired' },
+  { value: 'disposed', label: 'Disposed' },
 ]
 
 export const ASSET_CONDITION_OPTIONS = [

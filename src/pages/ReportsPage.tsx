@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { FileText, Download, FileSpreadsheet, Filter, Building2, Tag, Activity } from 'lucide-react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
-import { assetService } from '@/services'
+import { assetService, buildingService, categoryService } from '@/services'
 import { formatDate, downloadBlob } from '@/utils'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
@@ -17,6 +17,22 @@ export default function ReportsPage() {
   const { data: assetsData } = useQuery({
     queryKey: ['assets-report'],
     queryFn: () => assetService.getAll({}, 1, 999),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  })
+
+  const { data: buildingsList = [] } = useQuery({
+    queryKey: ['buildings'],
+    queryFn: () => buildingService.getAll(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  })
+
+  const { data: categoriesList = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => categoryService.getAll(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
 
   const assets = assetsData?.data || []
@@ -127,8 +143,8 @@ export default function ReportsPage() {
   const summaryCards = [
     { title: 'Total Assets', value: assets.length, icon: Tag, color: '#3b82f6' },
     { title: 'Active', value: assets.filter((a: any) => a.status === 'active').length, icon: Activity, color: '#10b981' },
-    { title: 'Buildings', value: 4, icon: Building2, color: '#8b5cf6' },
-    { title: 'Categories', value: 12, icon: Filter, color: '#f59e0b' },
+    { title: 'Buildings', value: buildingsList.length, icon: Building2, color: '#8b5cf6' },
+    { title: 'Categories', value: categoriesList.length, icon: Filter, color: '#f59e0b' },
   ]
 
   return (

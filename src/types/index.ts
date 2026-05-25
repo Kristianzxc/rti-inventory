@@ -26,7 +26,7 @@ export interface AssetCategory {
   created_at: string
 }
 
-export type AssetStatus = 'active' | 'inactive' | 'maintenance' | 'retired'
+export type AssetStatus = 'active' | 'defective' | 'maintenance' | 'disposed'
 export type AssetCondition = 'excellent' | 'good' | 'fair' | 'poor'
 export type AssetDomain = 'it' | 'utility'
 
@@ -86,8 +86,30 @@ export interface DashboardStats {
   totalAssets: number
   activeAssets: number
   maintenanceAssets: number
-  retiredAssets: number
+  disposedAssets: number
   buildingsCount: number
+}
+
+export type ReceivedItemCondition = 'new' | 'recycle' | 'good_as_new' | 'used'
+
+export interface ReceivedItem {
+  id: string
+  date_received: string
+  item: string
+  quantity: number
+  unit: string
+  condition: ReceivedItemCondition
+  delivered_by: string | null
+  received_by: string | null
+  temporary_building_storage: string | null
+  assigned_transferred_to: string | null
+  transferred_by: string | null
+  date_transferred: string | null
+  asset_id: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  asset?: Asset
 }
 
 export interface ChartDataPoint {

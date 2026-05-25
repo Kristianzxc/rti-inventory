@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { Plus, Search, Armchair, Eye, Pencil, Trash2 } from 'lucide-react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { assetService, buildingService, categoryService } from '@/services'
-import { getStatusColor, getConditionBadge, formatDate, getCategoryIcon } from '@/utils'
+import { getStatusColor, getConditionBadge, formatDate } from '@/utils'
 import { useAuth } from '@/features/auth/AuthContext'
 import type { Asset } from '@/types'
 import AssetFormModal from '@/components/assets/AssetFormModal'
@@ -33,9 +33,9 @@ export default function UtilityAssetsPage() {
     refetchOnWindowFocus: true,
   })
 
-  const { data: allCategories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => categoryService.getAll(),
+  const { data: utilityCategories = [] } = useQuery({
+    queryKey: ['categories-utility'],
+    queryFn: () => categoryService.getByType('utility'),
     staleTime: 0,
     refetchOnWindowFocus: true,
   })
@@ -52,7 +52,6 @@ export default function UtilityAssetsPage() {
     refetchOnWindowFocus: true,
   })
 
-  const utilityCategories = allCategories.filter((c: any) => c.type === 'utility')
   const assets: Asset[] = assetsData?.data || []
 
   const handleDelete = async () => {
@@ -60,7 +59,8 @@ export default function UtilityAssetsPage() {
     try {
       await assetService.delete(deleteAsset.id)
       toast.success('Asset deleted')
-      await qc.invalidateQueries({ queryKey: ['utility-assets'] })
+      setDeleteAsset(null)
+      await qc.refetchQueries({ queryKey: ['utility-assets'] })
       setDeleteAsset(null)
     } catch {
       toast.error('Failed to delete')
@@ -70,9 +70,9 @@ export default function UtilityAssetsPage() {
   const handleSuccess = async () => {
     setShowModal(false)
     setEditAsset(null)
-    await qc.invalidateQueries({ queryKey: ['utility-assets'] })
-    await qc.invalidateQueries({ queryKey: ['utility-dashboard-stats'] })
-    await qc.invalidateQueries({ queryKey: ['recent-utility-assets'] })
+    await qc.refetchQueries({ queryKey: ['utility-assets'] })
+    await qc.refetchQueries({ queryKey: ['utility-dashboard-stats'] })
+    await qc.refetchQueries({ queryKey: ['recent-utility-assets'] })
   }
 
   return (
@@ -161,10 +161,13 @@ export default function UtilityAssetsPage() {
                     style={{ borderTop: '1px solid var(--border-subtle)' }}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
-                          style={{ background: 'rgba(16,185,129,0.1)' }}>
-                          {getCategoryIcon(asset.category?.name || '')}
-                        </div>
+                        {(asset as any).image_url
+                          ? <img src={(asset as any).image_url} alt={asset.name} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                          : <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                              style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981', fontSize: 12, fontWeight: 700 }}>
+                              {asset.name?.[0]?.toUpperCase() || '?'}
+                            </div>
+                        }
                         <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{asset.name}</span>
                       </div>
                     </td>

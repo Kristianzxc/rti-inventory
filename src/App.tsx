@@ -30,6 +30,7 @@ import CategoriesPage   from '@/pages/Categoriespage'
 
 // Utility
 import UtilityReportsPage from '@/pages/UtilityReportsPage'
+import ReceivedItemsPage  from '@/pages/Receiveditemspage'
 
 // Redirects each role to their correct home dashboard
 function RootRedirect() {
@@ -123,6 +124,13 @@ export default function App() {
         <Route path="/categories" element={
           <ProtectedRoute allowedRoles={['tech-admin', 'it-admin', 'utility-admin']}>
             <CategoriesPage />
+          </ProtectedRoute>
+        } />
+
+        {/* ── Received Items — tech-admin + it-admin ────────── */}
+        <Route path="/received-items" element={
+          <ProtectedRoute allowedRoles={['tech-admin', 'it-admin']}>
+            <ReceivedItemsPage />
           </ProtectedRoute>
         } />
 

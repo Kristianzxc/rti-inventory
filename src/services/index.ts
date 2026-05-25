@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { Asset, AssetCategory, AssetDomain, FilterState, MaintenanceLog, Profile } from '@/types'
+import type { Asset, AssetCategory, AssetDomain, FilterState, MaintenanceLog, Profile, ReceivedItem } from '@/types'
 
 export const assetService = {
   async getAll(filters?: Partial<FilterState>, page = 1, pageSize = 10) {
@@ -58,7 +58,7 @@ export const assetService = {
     return data as Asset[]
   },
 
-  async create(formData: any, p0: any, imageFile: File | null) {
+  async create(formData: any) {
     const { data: { user } } = await supabase.auth.getUser()
     const userId = user?.id
     const { data, error } = await supabase
@@ -69,7 +69,7 @@ export const assetService = {
     return data as Asset
   },
 
-  async update(id: string, formData: any, imageFile: File | null) {
+  async update(id: string, formData: any) {
     const { data, error } = await supabase
       .from('assets')
       .update({ ...formData, updated_at: new Date().toISOString() })
@@ -96,7 +96,8 @@ export const assetService = {
       totalAssets:       assets.length,
       activeAssets:      assets.filter(a => a.status === 'active').length,
       maintenanceAssets: assets.filter(a => a.status === 'maintenance').length,
-      retiredAssets:     assets.filter(a => a.status === 'retired').length,
+      disposedAssets:    assets.filter(a => a.status === 'disposed').length,
+      defectiveAssets:   assets.filter(a => a.status === 'defective').length,
       buildingsCount:    buildingsRes.count || 0,
     }
   },
@@ -218,5 +219,73 @@ export const buildingService = {
   async delete(id: string) {
     const { error } = await supabase.from('buildings').delete().eq('id', id)
     if (error) throw error
+  },
+}
+export const receivedItemService = {
+  async getAll(filters?: { condition?: string; search?: string }, page = 1, pageSize = 20) {
+    let q = supabase
+      .from('received_items')
+      .select('*, asset:assets(id,name,asset_code)', { count: 'exact' })
+      .order('date_received', { ascending: false })
+    if (filters?.condition) q = q.eq('condition', filters.condition)
+    if (filters?.search) q = q.ilike('item', `%${filters.search}%`)
+    const from = (page - 1) * pageSize
+    q = q.range(from, from + pageSize - 1)
+    const { data, error, count } = await q
+    if (error) throw error
+    return { data: data as ReceivedItem[], count: count || 0 }
+  },
+
+  async getById(id: string) {
+    const { data, error } = await supabase
+      .from('received_items')
+      .select('*, asset:assets(id,name,asset_code)')
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return data as ReceivedItem
+  },
+
+  async create(d: Omit<ReceivedItem, 'id' | 'created_at' | 'updated_at' | 'asset'>) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data, error } = await supabase
+      .from('received_items')
+      .insert({ ...d, created_by: user?.id || null, updated_at: new Date().toISOString() })
+      .select().single()
+    if (error) throw error
+    return data as ReceivedItem
+  },
+
+  async update(id: string, d: Partial<ReceivedItem>) {
+    const { data, error } = await supabase
+      .from('received_items')
+      .update({ ...d, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select().single()
+    if (error) throw error
+    return data as ReceivedItem
+  },
+
+  async delete(id: string) {
+    // Nullify asset_id first to release the foreign key, then delete
+    await supabase.from('received_items').update({ asset_id: null }).eq('id', id)
+    const { error } = await supabase.from('received_items').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  /** Mark as transferred and optionally link to an asset */
+  async transfer(id: string, payload: {
+    assigned_transferred_to: string
+    transferred_by: string
+    date_transferred: string
+    asset_id?: string
+  }) {
+    const { data, error } = await supabase
+      .from('received_items')
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select().single()
+    if (error) throw error
+    return data as ReceivedItem
   },
 }
