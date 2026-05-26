@@ -49,15 +49,23 @@ export default function ITAssetsPage() {
   const total = assetsData?.count || 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
   const handleDelete = async () => {
     if (!deleteAsset) return
+    setDeleteLoading(true)
     try {
       await assetService.delete(deleteAsset.id)
       toast.success('Asset deleted')
       setDeleteAsset(null)
-      await qc.refetchQueries({ queryKey: ['it-assets'] })
-      await qc.refetchQueries({ queryKey: ['it-dashboard-stats'] })
-    } catch { toast.error('Failed to delete asset') }
+      await qc.invalidateQueries({ queryKey: ['it-assets'] })
+      await qc.invalidateQueries({ queryKey: ['it-dashboard-stats'] })
+      await qc.invalidateQueries({ queryKey: ['recent-it-assets'] })
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete asset')
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   const handleSuccess = async () => {
@@ -260,6 +268,7 @@ export default function ITAssetsPage() {
           message={`Delete "${deleteAsset.name}"? This cannot be undone.`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteAsset(null)}
+          loading={deleteLoading}
         />
       )}
     </DashboardLayout>

@@ -58,7 +58,7 @@ export const assetService = {
     return data as Asset[]
   },
 
-  async create(formData: any) {
+  async create(formData: any, p0: any, imageFile: File | null) {
     const { data: { user } } = await supabase.auth.getUser()
     const userId = user?.id
     const { data, error } = await supabase
@@ -69,7 +69,7 @@ export const assetService = {
     return data as Asset
   },
 
-  async update(id: string, formData: any) {
+  async update(id: string, formData: any, imageFile: File | null) {
     const { data, error } = await supabase
       .from('assets')
       .update({ ...formData, updated_at: new Date().toISOString() })
@@ -80,9 +80,41 @@ export const assetService = {
   },
 
   async delete(id: string) {
+    // 1. Fetch asset for image cleanup
+    const { data: asset } = await supabase
+      .from('assets')
+      .select('image_url')
+      .eq('id', id)
+      .single()
+
+    // 2. Delete FK-linked maintenance_logs
+    const { error: maintErr } = await supabase
+      .from('maintenance_logs').delete().eq('asset_id', id)
+    if (maintErr) console.warn('maintenance_logs cleanup:', maintErr.message)
+
+    // 3. Nullify FK on received_items
+    const { error: riErr } = await supabase
+      .from('received_items').update({ asset_id: null }).eq('asset_id', id)
+    if (riErr) console.warn('received_items nullify:', riErr.message)
+
+    // 4. Delete the asset row — surface real DB error to the UI
     const { error } = await supabase.from('assets').delete().eq('id', id)
-    if (error) throw error
+    if (error) {
+      console.error('Asset delete error:', error)
+      throw new Error(error.message || 'Failed to delete asset. Check database permissions.')
+    }
+
+    // 5. Clean up storage image (non-blocking)
+    if (asset?.image_url) {
+      try {
+        const path = asset.image_url.split('/storage/v1/object/public/assets/')[1]
+        if (path) await supabase.storage.from('assets').remove([path])
+      } catch {
+        // Non-critical
+      }
+    }
   },
+
 
   async getDashboardStats(domain?: AssetDomain) {
     let q = supabase.from('assets').select('status, domain')
@@ -273,12 +305,11 @@ export const receivedItemService = {
     if (error) throw error
   },
 
-  /** Mark as transferred and optionally link to an asset */
+  /** Mark as transferred — no longer linked to IT assets */
   async transfer(id: string, payload: {
     assigned_transferred_to: string
     transferred_by: string
     date_transferred: string
-    asset_id?: string
   }) {
     const { data, error } = await supabase
       .from('received_items')

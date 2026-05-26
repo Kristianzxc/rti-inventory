@@ -23,7 +23,7 @@ const assetSchema = z.object({
   condition:        z.enum(['excellent','good','fair','poor']),
   assigned_to:      z.string().optional(),
   purchase_date:    z.string().optional(),
-  maintenance_date: z.string().optional(),
+  maintenance_date: z.string().optional(), // IT only — stripped from payload for utility
 })
 type FormValues = z.infer<typeof assetSchema>
 
@@ -137,11 +137,24 @@ export default function AssetFormModal({ asset, domain, onClose, onSuccess, buil
   const onSubmit = async (data: FormValues) => {
     setLoading(true)
     try {
+      // Convert empty date strings to null so DB stores NULL not empty string
+      const payload: any = {
+        ...data,
+        domain,
+        purchase_date:    data.purchase_date    || null,
+        maintenance_date: domain === 'it' ? (data.maintenance_date || null) : null,
+      }
+
+      // Permanently exclude maintenance_date from utility payloads
+      if (domain === 'utility') {
+        delete payload.maintenance_date
+      }
+
       if (isEdit) {
-        await assetService.update(asset!.id, { ...data, domain } as any, imageFile)
+        await assetService.update(asset!.id, payload, imageFile)
         toast.success('Asset updated')
       } else {
-        await assetService.create({ ...data, domain } as any, user?.id || '', imageFile)
+        await assetService.create(payload, user?.id || '', imageFile)
         toast.success('Asset added')
       }
       onSuccess()
@@ -306,27 +319,39 @@ export default function AssetFormModal({ asset, domain, onClose, onSuccess, buil
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="label-text block mb-1.5">Assigned To</label>
-                <input {...register('assigned_to')} className="input-field"
-                  placeholder="e.g. John Doe / IT Department" />
-              </div>
-              <div>
-                <label className="label-text block mb-1.5">
-                  Purchase Date <span className="text-xs" style={{ color:'var(--text-muted)' }}>(optional)</span>
-                </label>
-                <input {...register('purchase_date')} type="date" className="input-field" />
-              </div>
+            <div>
+              <label className="label-text block mb-1.5">Assigned To</label>
+              <input {...register('assigned_to')} className="input-field"
+                placeholder="e.g. John Doe / IT Department" />
             </div>
 
-            {/* Next Maintenance Date — IT only, hidden for Utility */}
+            {/* Purchase Date — optional for both domains */}
+            <div>
+              <label className="label-text block mb-1.5">
+                Purchase Date
+                <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>(optional)</span>
+              </label>
+              <input
+                {...register('purchase_date')}
+                type="date"
+                className="input-field"
+                placeholder="Leave blank if unknown"
+              />
+            </div>
+
+            {/* Next Maintenance Date — IT assets only, permanently removed for Utility */}
             {domain === 'it' && (
               <div>
                 <label className="label-text block mb-1.5">
-                  Next Maintenance Date <span className="text-xs" style={{ color:'var(--text-muted)' }}>(optional)</span>
+                  Next Maintenance Date
+                  <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>(optional)</span>
                 </label>
-                <input {...register('maintenance_date')} type="date" className="input-field" />
+                <input
+                  {...register('maintenance_date')}
+                  type="date"
+                  className="input-field"
+                  placeholder="Leave blank if unknown"
+                />
               </div>
             )}
 

@@ -46,10 +46,10 @@ export default function StatCard({ title, value, icon: Icon, color, gradient, ch
         </div>
 
         <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: gradient, boxShadow: `0 4px 12px ${color}40` }}
         >
-          <Icon size={20} className="text-white" />
+          <Icon size={13} className="text-white" />
         </div>
       </div>
 

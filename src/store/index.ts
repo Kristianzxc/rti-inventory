@@ -72,24 +72,47 @@ export const useAuthStore = create<AuthState>()(
 // UI Store
 interface UIState {
   sidebarCollapsed: boolean
+  mobileMenuOpen: boolean
+  darkMode: boolean
   activeModal: string | null
   toggleSidebar: () => void
+  setMobileMenuOpen: (open: boolean) => void
+  toggleDarkMode: () => void
   openModal: (modal: string) => void
   closeModal: () => void
 }
 
 export const useUIStore = create<UIState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       sidebarCollapsed: false,
+      mobileMenuOpen: false,
+      darkMode: true,
       activeModal: null,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+      setMobileMenuOpen: (open) => set({ mobileMenuOpen: open }),
+      toggleDarkMode: () => {
+        const next = !get().darkMode
+        set({ darkMode: next })
+        if (next) {
+          document.documentElement.classList.remove('light-mode')
+        } else {
+          document.documentElement.classList.add('light-mode')
+        }
+      },
       openModal: (modal) => set({ activeModal: modal }),
       closeModal: () => set({ activeModal: null }),
     }),
     {
       name: 'ui-store',
-      partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }),
+      partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed, darkMode: s.darkMode }),
+      onRehydrateStorage: () => (state) => {
+        if (state && !state.darkMode) {
+          document.documentElement.classList.add('light-mode')
+        } else {
+          document.documentElement.classList.remove('light-mode')
+        }
+      },
     }
   )
 )

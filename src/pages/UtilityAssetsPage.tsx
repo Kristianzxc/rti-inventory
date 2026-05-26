@@ -54,16 +54,22 @@ export default function UtilityAssetsPage() {
 
   const assets: Asset[] = assetsData?.data || []
 
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
   const handleDelete = async () => {
     if (!deleteAsset) return
+    setDeleteLoading(true)
     try {
       await assetService.delete(deleteAsset.id)
       toast.success('Asset deleted')
       setDeleteAsset(null)
-      await qc.refetchQueries({ queryKey: ['utility-assets'] })
-      setDeleteAsset(null)
-    } catch {
-      toast.error('Failed to delete')
+      await qc.invalidateQueries({ queryKey: ['utility-assets'] })
+      await qc.invalidateQueries({ queryKey: ['utility-dashboard-stats'] })
+      await qc.invalidateQueries({ queryKey: ['recent-utility-assets'] })
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete asset')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -244,6 +250,7 @@ export default function UtilityAssetsPage() {
           message={`Delete "${deleteAsset.name}"? This cannot be undone.`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteAsset(null)}
+          loading={deleteLoading}
         />
       )}
     </DashboardLayout>
