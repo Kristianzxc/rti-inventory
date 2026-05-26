@@ -30,6 +30,59 @@ export type AssetStatus = 'active' | 'defective' | 'maintenance' | 'disposed'
 export type AssetCondition = 'excellent' | 'good' | 'fair' | 'poor'
 export type AssetDomain = 'it' | 'utility'
 
+export type UtilityCondition =
+  | 'Working - Assigned'
+  | 'Working - In Storage'
+  | 'For Testing'
+  | 'Not Tested'
+  | 'Defective'
+  | 'Damaged'
+  | 'For Disposal'
+
+export const UTILITY_CONDITION_OPTIONS: UtilityCondition[] = [
+  'Working - Assigned',
+  'Working - In Storage',
+  'For Testing',
+  'Not Tested',
+  'Defective',
+  'Damaged',
+  'For Disposal',
+]
+
+export const DESIGNATED_DEPARTMENT_OPTIONS = [
+  'Coding',
+  'Transcription',
+  'MAHS',
+  'MAHS-EV',
+  'Billing-Calls',
+  'Billing-Aires',
+  'IT',
+  'Maintenance & Utility',
+]
+
+export interface UtilityAssetExtra {
+  id: string
+  asset_id: string
+  workstation: string | null
+  designated_department: string | null
+  date_of_use: string | null
+  age_span: string | null
+  utility_condition: string | null
+  direct_responsible_individual: string | null
+  note: string | null
+  // Damage report
+  damage_date_reported: string | null
+  damage_reported_by: string | null
+  damage_description: string | null
+  damage_recommendation: string | null
+  // Repair
+  repair_date: string | null
+  repair_details: string | null
+  repair_remarks: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Asset {
   id: string
   asset_code: string | null
@@ -52,6 +105,7 @@ export interface Asset {
   category?: AssetCategory
   building?: Building
   creator?: Profile
+  utility_extra?: UtilityAssetExtra
 }
 
 export interface MaintenanceLog {
@@ -87,6 +141,7 @@ export interface DashboardStats {
   activeAssets: number
   maintenanceAssets: number
   disposedAssets: number
+  defectiveAssets: number
   buildingsCount: number
 }
 

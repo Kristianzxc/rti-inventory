@@ -58,7 +58,7 @@ export const assetService = {
     return data as Asset[]
   },
 
-  async create(formData: any, p0: any, imageFile: File | null) {
+  async create(formData: any) {
     const { data: { user } } = await supabase.auth.getUser()
     const userId = user?.id
     const { data, error } = await supabase
@@ -69,7 +69,7 @@ export const assetService = {
     return data as Asset
   },
 
-  async update(id: string, formData: any, imageFile: File | null) {
+  async update(id: string, formData: any) {
     const { data, error } = await supabase
       .from('assets')
       .update({ ...formData, updated_at: new Date().toISOString() })
@@ -318,5 +318,40 @@ export const receivedItemService = {
       .select().single()
     if (error) throw error
     return data as ReceivedItem
+  },
+}
+export const utilityExtraService = {
+  async getByAssetId(assetId: string) {
+    const { data } = await supabase
+      .from('utility_asset_extras')
+      .select('*')
+      .eq('asset_id', assetId)
+      .maybeSingle()
+    return data
+  },
+
+  async upsert(assetId: string, payload: Partial<import('@/types').UtilityAssetExtra>) {
+    const { data: existing } = await supabase
+      .from('utility_asset_extras')
+      .select('id')
+      .eq('asset_id', assetId)
+      .maybeSingle()
+
+    if (existing?.id) {
+      const { data, error } = await supabase
+        .from('utility_asset_extras')
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq('asset_id', assetId)
+        .select().single()
+      if (error) throw error
+      return data
+    } else {
+      const { data, error } = await supabase
+        .from('utility_asset_extras')
+        .insert({ ...payload, asset_id: assetId, updated_at: new Date().toISOString() })
+        .select().single()
+      if (error) throw error
+      return data
+    }
   },
 }
