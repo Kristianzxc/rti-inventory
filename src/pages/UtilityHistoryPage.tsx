@@ -55,35 +55,53 @@ export default function UtilityHistoryPage() {
   const { data: buildings = [] } = useQuery({ queryKey: ['buildings'], queryFn: () => buildingService.getAll(), staleTime: 0 })
   const { data: utilityCategories = [] } = useQuery({ queryKey: ['categories-utility'], queryFn: () => categoryService.getByType('utility'), staleTime: 0 })
 
-  /* ── Fetch all extras that have incident OR repair data ── */
-  const { data: allRecords = [], isLoading } = useQuery({
-    queryKey: ['utility-history-all'],
+  /* ── Fetch incident records ── */
+  const { data: incidentRecords = [], isLoading: loadingIncidents } = useQuery({
+    queryKey: ['utility-incident-logs-history'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('utility_asset_extras')
+        .from('utility_incident_logs')
         .select(`
           *,
           asset:assets(
             id, name, asset_code, assigned_to, domain,
             category:asset_categories(id, name),
             building:buildings(id, name)
-          )
+          ),
+          extra:utility_asset_extras(utility_condition)
         `)
-        .eq('asset.domain', 'utility')
+        .order('date_reported', { ascending: false })
       if (error) throw error
-      return (data || []).filter((r: any) => r.asset !== null)
+      return (data || []).filter((r: any) => r.asset !== null && r.asset?.domain === 'utility')
     },
     staleTime: 0,
     refetchOnWindowFocus: true,
   })
 
-  const incidentRecords = allRecords.filter((r: any) =>
-    r.damage_description || r.damage_date_reported || r.damage_reported_by || r.damage_recommendation
-  )
+  /* ── Fetch repair records ── */
+  const { data: repairRecords = [], isLoading: loadingRepairs } = useQuery({
+    queryKey: ['utility-repair-logs-history'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('utility_repair_logs')
+        .select(`
+          *,
+          asset:assets(
+            id, name, asset_code, assigned_to, domain,
+            category:asset_categories(id, name),
+            building:buildings(id, name)
+          ),
+          extra:utility_asset_extras(utility_condition)
+        `)
+        .order('date_of_repair', { ascending: false })
+      if (error) throw error
+      return (data || []).filter((r: any) => r.asset !== null && r.asset?.domain === 'utility')
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  })
 
-  const repairRecords = allRecords.filter((r: any) =>
-    r.repair_details || r.repair_date || r.repair_remarks
-  )
+  const isLoading = loadingIncidents || loadingRepairs
 
   const activeRecords = activeTab === 'incident' ? incidentRecords : repairRecords
 
@@ -95,15 +113,15 @@ export default function UtilityHistoryPage() {
       const match =
         asset.name?.toLowerCase().includes(q) ||
         asset.asset_code?.toLowerCase().includes(q) ||
-        r.damage_description?.toLowerCase().includes(q) ||
-        r.damage_reported_by?.toLowerCase().includes(q) ||
-        r.repair_details?.toLowerCase().includes(q) ||
-        r.repair_remarks?.toLowerCase().includes(q)
+        r.description?.toLowerCase().includes(q) ||
+        r.reported_by?.toLowerCase().includes(q) ||
+        r.details?.toLowerCase().includes(q) ||
+        r.remarks?.toLowerCase().includes(q)
       if (!match) return false
     }
     if (filterBuilding && asset.building?.id !== filterBuilding) return false
     if (filterCategory && asset.category?.id !== filterCategory) return false
-    if (filterCondition && r.utility_condition !== filterCondition) return false
+    if (filterCondition && r.extra?.utility_condition !== filterCondition) return false
     return true
   })
 
@@ -116,10 +134,10 @@ export default function UtilityHistoryPage() {
       if (sort.field === 'building') return r.asset?.building?.name || ''
       if (sort.field === 'category') return r.asset?.category?.name || ''
       if (sort.field === 'date')
-        return activeTab === 'incident' ? (r.damage_date_reported || '') : (r.repair_date || '')
+        return activeTab === 'incident' ? (r.date_reported || '') : (r.date_of_repair || '')
       if (sort.field === 'reporter')
-        return activeTab === 'incident' ? (r.damage_reported_by || '') : (r.repair_remarks || '')
-      if (sort.field === 'condition') return r.utility_condition || ''
+        return activeTab === 'incident' ? (r.reported_by || '') : (r.remarks || '')
+      if (sort.field === 'condition') return r.extra?.utility_condition || ''
       return ''
     }
     const av = getV(a).toLowerCase()
@@ -143,9 +161,9 @@ export default function UtilityHistoryPage() {
   /* ── Summary counts ── */
   const totalIncidents = incidentRecords.length
   const totalRepairs   = repairRecords.length
-  const withBothCount  = allRecords.filter((r: any) =>
-    (r.damage_description || r.damage_date_reported) && (r.repair_details || r.repair_date)
-  ).length
+  // Assets that appear in both logs
+  const incidentAssetIds = new Set(incidentRecords.map((r: any) => r.asset_id))
+  const withBothCount  = repairRecords.filter((r: any) => incidentAssetIds.has(r.asset_id)).length
 
   const incidentCols = [
     { key: 'asset',     label: 'Item Model' },
@@ -391,43 +409,43 @@ export default function UtilityHistoryPage() {
                       {/* Date */}
                       <td className="px-4 py-3 whitespace-nowrap text-sm" style={{ color: 'var(--text-muted)' }}>
                         {activeTab === 'incident'
-                          ? (record.damage_date_reported ? formatDate(record.damage_date_reported) : '—')
-                          : (record.repair_date ? formatDate(record.repair_date) : '—')}
+                          ? (record.date_reported ? formatDate(record.date_reported) : '—')
+                          : (record.date_of_repair ? formatDate(record.date_of_repair) : '—')}
                       </td>
                       {/* Reporter / Remarks label */}
                       <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
                         {activeTab === 'incident'
-                          ? (record.damage_reported_by || '—')
-                          : (record.repair_remarks || '—')}
+                          ? (record.reported_by || '—')
+                          : (record.remarks || '—')}
                       </td>
                       {/* Condition */}
                       <td className="px-4 py-3">
-                        <ConditionBadge value={record.utility_condition || ''} />
+                        <ConditionBadge value={record.extra?.utility_condition || ''} />
                       </td>
                       {/* Details */}
                       <td className="px-4 py-3" style={{ maxWidth: 260 }}>
                         {activeTab === 'incident' ? (
                           <div className="space-y-0.5">
-                            {record.damage_description && (
+                            {record.description && (
                               <p className="text-xs line-clamp-2"
                                 style={{ color: 'var(--text-secondary)' }}
-                                title={record.damage_description}>
-                                {record.damage_description}
+                                title={record.description}>
+                                {record.description}
                               </p>
                             )}
-                            {record.damage_recommendation && (
+                            {record.recommendation && (
                               <p className="text-xs italic"
                                 style={{ color: 'var(--text-muted)' }}
-                                title={record.damage_recommendation}>
-                                Rec: {record.damage_recommendation}
+                                title={record.recommendation}>
+                                Rec: {record.recommendation}
                               </p>
                             )}
                           </div>
                         ) : (
                           <p className="text-xs line-clamp-2"
                             style={{ color: 'var(--text-secondary)' }}
-                            title={record.repair_details}>
-                            {record.repair_details || '—'}
+                            title={record.details}>
+                            {record.details || '—'}
                           </p>
                         )}
                       </td>

@@ -58,21 +58,44 @@ export const assetService = {
     return data as Asset[]
   },
 
-  async create(formData: any) {
+  async _uploadImage(imageFile: File): Promise<string> {
+    const ext = imageFile.name.split('.').pop() || 'webp'
+    const path = `assets/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from('asset-images')
+      .upload(path, imageFile, { upsert: true, contentType: imageFile.type })
+    if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`)
+    const { data: { publicUrl } } = supabase.storage
+      .from('asset-images')
+      .getPublicUrl(path)
+    return publicUrl
+  },
+
+  async create(formData: any, _userId?: string, imageFile?: File | null) {
     const { data: { user } } = await supabase.auth.getUser()
     const userId = user?.id
+    let image_url: string | null = formData.image_url || null
+    if (imageFile) {
+      image_url = await assetService._uploadImage(imageFile)
+    }
     const { data, error } = await supabase
       .from('assets')
-      .insert({ ...formData, created_by: userId || null, updated_at: new Date().toISOString() })
+      .insert({ ...formData, image_url, created_by: userId || null, updated_at: new Date().toISOString() })
       .select().single()
     if (error) throw error
     return data as Asset
   },
 
-  async update(id: string, formData: any) {
+  async update(id: string, formData: any, imageFile?: File | null) {
+    let image_url: string | null | undefined = formData.image_url ?? undefined
+    if (imageFile) {
+      image_url = await assetService._uploadImage(imageFile)
+    }
+    const payload: any = { ...formData, updated_at: new Date().toISOString() }
+    if (image_url !== undefined) payload.image_url = image_url
     const { data, error } = await supabase
       .from('assets')
-      .update({ ...formData, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq('id', id)
       .select().single()
     if (error) throw error

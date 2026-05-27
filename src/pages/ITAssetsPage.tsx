@@ -1,468 +1,270 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Plus, Search, Armchair, Pencil, Trash2, Filter,
-  ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight, X
-} from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Plus, Search, Filter, Cpu, ChevronLeft, ChevronRight, X, Eye, Pencil, Trash2 } from 'lucide-react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
-import { assetService, buildingService, categoryService, utilityExtraService } from '@/services'
-import { formatDate } from '@/utils'
+import { assetService, buildingService, categoryService } from '@/services'
+import { formatDate, getStatusColor, getConditionBadge, classNames } from '@/utils'
 import { useAuth } from '@/features/auth/AuthContext'
-import type { Asset } from '@/types'
-import { UTILITY_CONDITION_OPTIONS, DESIGNATED_DEPARTMENT_OPTIONS } from '@/types'
-import UtilityFormModal from '@/components/assets/Utilityformmodal'
+import type { FilterState, Asset } from '@/types'
+import AssetFormModal from '@/components/assets/AssetFormModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { toast } from 'sonner'
 
-/* ─── Condition badge ─────────────────────────────────────────── */
-function ConditionBadge({ value }: { value: string }) {
-  const map: Record<string, { bg: string; color: string }> = {
-    'Working - Assigned':   { bg: 'rgba(16,185,129,0.15)',  color: '#10b981' },
-    'Working - In Storage': { bg: 'rgba(59,130,246,0.15)',  color: '#3b82f6' },
-    'For Testing':          { bg: 'rgba(245,158,11,0.15)',  color: '#f59e0b' },
-    'Not Tested':           { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' },
-    'Defective':            { bg: 'rgba(249,115,22,0.15)',  color: '#f97316' },
-    'Damaged':              { bg: 'rgba(244,63,94,0.15)',   color: '#f43f5e' },
-    'For Disposal':         { bg: 'rgba(127,29,29,0.25)',   color: '#fca5a5' },
-  }
-  const style = map[value] || { bg: 'rgba(148,163,184,0.1)', color: '#94a3b8' }
-  if (!value) return <span style={{ color: 'var(--text-muted)' }}>—</span>
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-      style={style}>
-      {value}
-    </span>
-  )
-}
-
-/* ─── Truncated cell with tooltip ───────────────────────────── */
-function TruncCell({ value, maxW = 120 }: { value: string; maxW?: number }) {
-  if (!value) return <span style={{ color: 'var(--text-muted)' }}>—</span>
-  return (
-    <span title={value} className="block truncate text-sm cursor-default"
-      style={{ maxWidth: maxW, color: 'var(--text-secondary)' }}>
-      {value}
-    </span>
-  )
-}
-
-/* ─── Sort helper ────────────────────────────────────────────── */
-type SortDir = 'asc' | 'desc' | null
-function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: SortDir } }) {
-  if (sort.field !== field) return <ChevronsUpDown size={12} style={{ color: '#475569' }} />
-  return sort.dir === 'asc'
-    ? <ChevronUp size={12} style={{ color: '#10b981' }} />
-    : <ChevronDown size={12} style={{ color: '#10b981' }} />
-}
-
-const COLS = [
-  { key: 'category',    label: 'Item Type' },
-  { key: 'name',        label: 'Item Model' },
-  { key: 'asset_code',  label: 'Stock ID' },
-  { key: 'assigned_to', label: 'Location of Item' },
-  { key: 'building',    label: 'Bldg / Room' },
-  { key: 'workstation', label: 'Work Station' },
-  { key: 'date_of_use', label: 'Date of Use' },
-  { key: 'age_span',    label: 'Age Span' },
-  { key: 'condition',   label: 'Condition' },
-]
-
-export default function UtilityAssetsPage() {
+export default function ITAssetsPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const { isAdmin, isUtility } = useAuth()
-  const canEdit = isAdmin || isUtility
+  const [searchParams] = useSearchParams()
+  const { isAdmin, isITAdmin } = useAuth()
+  const canEdit = isAdmin || isITAdmin
 
-  const [showModal, setShowModal]           = useState(false)
-  const [editAsset, setEditAsset]           = useState<Asset | null>(null)
-  const [deleteAsset, setDeleteAsset]       = useState<Asset | null>(null)
-  const [deleteLoading, setDeleteLoading]   = useState(false)
-  const [expandedId, setExpandedId]         = useState<string | null>(null)
-  const [showFilterPanel, setShowFilterPanel] = useState(false)
-
-  const [search, setSearch]                         = useState('')
-  const [selectedCategoryId, setSelectedCategoryId] = useState('')
-  const [selectedBuilding, setSelectedBuilding]     = useState('')
-  const [selectedCondition, setSelectedCondition]   = useState('')
-  const [selectedDept, setSelectedDept]             = useState('')
-  const [sort, setSort] = useState<{ field: string; dir: SortDir }>({ field: '', dir: null })
-
-  const { data: buildings = [] }        = useQuery({ queryKey: ['buildings'],          queryFn: () => buildingService.getAll(),              staleTime: 0 })
-  const { data: utilityCategories = [] } = useQuery({ queryKey: ['categories-utility'], queryFn: () => categoryService.getByType('utility'), staleTime: 0 })
+  const [page, setPage] = useState(1)
+  const [showFilters, setShowFilters] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editAsset, setEditAsset] = useState<Asset | null>(null)
+  const [deleteAsset, setDeleteAsset] = useState<Asset | null>(null)
+  const [filters, setFilters] = useState<FilterState>({
+    search: searchParams.get('search') || '',
+    building: '', category: '', status: '', condition: '', dateFrom: '', dateTo: '',
+  })
+  const PAGE_SIZE = 10
 
   const { data: assetsData, isLoading } = useQuery({
-    queryKey: ['utility-assets', selectedCategoryId, search, selectedBuilding],
-    queryFn: () => assetService.getByDomain('utility', { search, category: selectedCategoryId, building: selectedBuilding }, 1, 500),
+    queryKey: ['it-assets', filters, page],
+    queryFn: () => assetService.getByDomain('it', filters, page, PAGE_SIZE),
     staleTime: 0,
     refetchOnWindowFocus: true,
   })
 
-  const allAssets: Asset[] = assetsData?.data || []
-  const assetIds = allAssets.map(a => a.id)
-
-  const { data: allExtras = [] } = useQuery({
-    queryKey: ['utility-extras-bulk', assetIds.join(',')],
-    queryFn: async () => {
-      if (!assetIds.length) return []
-      const { data } = await (await import('@/lib/supabase')).supabase
-        .from('utility_asset_extras')
-        .select('*')
-        .in('asset_id', assetIds)
-      return data || []
-    },
-    enabled: assetIds.length > 0,
+  const { data: buildings = [] } = useQuery({ queryKey: ['buildings'], queryFn: () => buildingService.getAll(), staleTime: 0, refetchOnWindowFocus: true })
+  const { data: itCategories = [] } = useQuery({
+    queryKey: ['categories-it'],
+    queryFn: () => categoryService.getByType('it'),
     staleTime: 0,
     refetchOnWindowFocus: true,
   })
 
-  const extrasMap: Record<string, any> = {}
-  allExtras.forEach((e: any) => { extrasMap[e.asset_id] = e })
+  const assets = assetsData?.data || []
+  const total = assetsData?.count || 0
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
-  const rows = allAssets.map(a => ({ ...a, extra: extrasMap[a.id] || {} }))
-
-  // Client-side filter by condition + department
-  const filtered = rows.filter(a => {
-    if (selectedCondition && a.extra.utility_condition !== selectedCondition) return false
-    if (selectedDept      && a.extra.designated_department !== selectedDept)  return false
-    return true
-  })
-
-  // Sort
-  const sorted = [...filtered].sort((a: any, b: any) => {
-    if (!sort.field || !sort.dir) return 0
-    const getVal = (row: any) => {
-      if (sort.field === 'category')    return row.category?.name || ''
-      if (sort.field === 'building')    return row.building?.name || ''
-      if (sort.field === 'workstation') return row.extra.workstation || ''
-      if (sort.field === 'department')  return row.extra.designated_department || ''
-      if (sort.field === 'date_of_use') return row.extra.date_of_use || ''
-      if (sort.field === 'age_span')    return row.extra.age_span || ''
-      if (sort.field === 'condition')   return row.extra.utility_condition || ''
-      if (sort.field === 'dri')         return row.extra.direct_responsible_individual || ''
-      return (row as any)[sort.field] || ''
-    }
-    const av = getVal(a).toString().toLowerCase()
-    const bv = getVal(b).toString().toLowerCase()
-    return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
-  })
-
-  const toggleSort = (field: string) => {
-    setSort(s => ({
-      field,
-      dir: s.field === field ? (s.dir === 'asc' ? 'desc' : s.dir === 'desc' ? null : 'asc') : 'asc'
-    }))
-  }
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const handleDelete = async () => {
     if (!deleteAsset) return
     setDeleteLoading(true)
     try {
       await assetService.delete(deleteAsset.id)
-      toast.success('Item deleted')
+      toast.success('Asset deleted')
       setDeleteAsset(null)
-      await qc.invalidateQueries({ queryKey: ['utility-assets'] })
-      await qc.invalidateQueries({ queryKey: ['utility-dashboard-stats'] })
+      await qc.invalidateQueries({ queryKey: ['it-assets'] })
+      await qc.invalidateQueries({ queryKey: ['it-dashboard-stats'] })
+      await qc.invalidateQueries({ queryKey: ['recent-it-assets'] })
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to delete item')
-    } finally { setDeleteLoading(false) }
+      toast.error(err?.message || 'Failed to delete asset')
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   const handleSuccess = async () => {
-    setShowModal(false)
+    setShowAddModal(false)
     setEditAsset(null)
-    await qc.invalidateQueries({ queryKey: ['utility-assets'] })
-    await qc.invalidateQueries({ queryKey: ['utility-extras-bulk'] })
-    await qc.invalidateQueries({ queryKey: ['utility-dashboard-stats'] })
+    await qc.refetchQueries({ queryKey: ['it-assets'] })
+    await qc.refetchQueries({ queryKey: ['it-dashboard-stats'] })
+    await qc.refetchQueries({ queryKey: ['recent-it-assets'] })
   }
-
-  const clearFilters = () => {
-    setSearch(''); setSelectedCategoryId(''); setSelectedBuilding('')
-    setSelectedCondition(''); setSelectedDept('')
-  }
-  const hasFilters = search || selectedCategoryId || selectedBuilding || selectedCondition || selectedDept
-  const activeFilterCount = [selectedCategoryId, selectedBuilding, selectedCondition, selectedDept].filter(Boolean).length
 
   return (
-    <DashboardLayout title="Utility Assets">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+    <DashboardLayout title="IT Assets">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <div className="flex items-center gap-2 mb-0.5">
+          <div className="flex items-center gap-2 mb-1">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg,#10b981,#06b6d4)' }}>
-              <Armchair size={14} className="text-white" />
+              style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)' }}>
+              <Cpu size={14} className="text-white" />
             </div>
-            <h1 className="page-title">Utility Assets</h1>
+            <h1 className="page-title">IT Assets</h1>
           </div>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {sorted.length} item{sorted.length !== 1 ? 's' : ''} found
-          </p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{total} IT assets registered</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Filter button beside Add Item */}
-          <button
-            onClick={() => setShowFilterPanel(v => !v)}
-            className="btn-secondary relative"
-            style={showFilterPanel ? { borderColor: 'rgba(16,185,129,0.5)', color: '#10b981' } : {}}>
-            <Filter size={14} />
-            Filter
-            {activeFilterCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center"
-                style={{ background: '#10b981', color: '#fff' }}>
-                {activeFilterCount}
-              </span>
-            )}
+          <button onClick={() => setShowFilters(!showFilters)}
+            className={classNames('btn-secondary', showFilters && 'border-cyan-500/50 text-cyan-400')}>
+            <Filter size={15} /> Filters
           </button>
           {canEdit && (
-            <button onClick={() => { setEditAsset(null); setShowModal(true) }} className="btn-primary"
-              style={{ background: 'linear-gradient(135deg,#10b981,#06b6d4)' }}>
-              <Plus size={15} /> Add Item
+            <button onClick={() => setShowAddModal(true)} className="btn-primary"
+              style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)' }}>
+              <Plus size={15} /> Add IT Asset
             </button>
           )}
         </div>
       </div>
 
-      {/* Search bar always visible */}
-      <div className="relative mb-3">
-        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          className="input-field pl-8 text-sm py-2" placeholder="Search model, stock ID, location..." />
-        {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
-            <X size={13} />
+      {/* Search */}
+      <div className="relative mb-4">
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+        <input value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+          className="input-field pl-11" placeholder="Search IT assets by name, code, serial number..." />
+        {filters.search && (
+          <button onClick={() => setFilters(f => ({ ...f, search: '' }))}
+            className="absolute right-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+            <X size={14} />
           </button>
         )}
       </div>
 
-      {/* Filter panel — shown when filter button is clicked */}
-      <AnimatePresence>
-        {showFilterPanel && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="glass-card p-4 mb-4 overflow-hidden">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <label className="label-text block mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>All Item Types</label>
-                <select value={selectedCategoryId} onChange={e => setSelectedCategoryId(e.target.value)} className="select-field text-sm">
-                  <option value="">All Item Types</option>
-                  {utilityCategories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label-text block mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>All Buildings</label>
-                <select value={selectedBuilding} onChange={e => setSelectedBuilding(e.target.value)} className="select-field text-sm">
-                  <option value="">All Buildings</option>
-                  {buildings.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label-text block mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>All Conditions</label>
-                <select value={selectedCondition} onChange={e => setSelectedCondition(e.target.value)} className="select-field text-sm">
-                  <option value="">All Conditions</option>
-                  {UTILITY_CONDITION_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label-text block mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>All Departments</label>
-                <select value={selectedDept} onChange={e => setSelectedDept(e.target.value)} className="select-field text-sm">
-                  <option value="">All Departments</option>
-                  {DESIGNATED_DEPARTMENT_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
+      {/* Filters */}
+      {showFilters && (
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+          className="glass-card p-4 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="label-text block mb-1.5">Building</label>
+              <select value={filters.building} onChange={e => setFilters(f => ({ ...f, building: e.target.value }))} className="select-field">
+                <option value="">All Buildings</option>
+                {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
             </div>
-            {hasFilters && (
-              <div className="flex justify-end mt-3">
-                <button onClick={clearFilters} className="btn-secondary text-xs py-1.5 px-3">Clear Filters</button>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <div>
+              <label className="label-text block mb-1.5">IT Category</label>
+              <select value={filters.category} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))} className="select-field">
+                <option value="">All IT Categories</option>
+                {itCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label-text block mb-1.5">Status</label>
+              <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} className="select-field">
+                <option value="">All Status</option>
+                {['active','inactive','maintenance','retired'].map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label-text block mb-1.5">Condition</label>
+              <select value={filters.condition} onChange={e => setFilters(f => ({ ...f, condition: e.target.value }))} className="select-field">
+                <option value="">All Conditions</option>
+                {['excellent','good','fair','poor'].map(c => <option key={c} value={c} className="capitalize">{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end mt-3">
+            <button onClick={() => setFilters({ search:'', building:'', category:'', status:'', condition:'', dateFrom:'', dateTo:'' })}
+              className="btn-secondary text-xs py-1.5 px-3">Clear Filters</button>
+          </div>
+        </motion.div>
+      )}
 
       {/* Table */}
       <div className="glass-card overflow-hidden">
-        {isLoading ? (
-          <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading items...</div>
-        ) : sorted.length === 0 ? (
-          <div className="p-12 text-center">
-            <Armchair size={40} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {hasFilters ? 'No items match your filters.' : 'No utility items yet. Add your first one.'}
-            </p>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr style={{ background: 'rgba(6,182,212,0.05)' }}>
+                {['Asset','Code','Category','Building','Status','Condition','Assigned To','Added','Actions'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
+                    style={{ color: 'var(--text-muted)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                      {Array.from({ length: 9 }).map((_, j) => (
+                        <td key={j} className="px-4 py-3"><div className="skeleton h-4 w-full rounded" /></td>
+                      ))}
+                    </tr>
+                  ))
+                : assets.map((asset: any, idx: number) => (
+                    <tr key={asset.id || idx} className="table-row-hover" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {asset.image_url
+                            ? <img src={asset.image_url} alt={asset.name} className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                            : <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                                style={{ background: 'rgba(6,182,212,0.12)', color: '#06b6d4', fontSize: 13, fontWeight: 700 }}>
+                                {asset.name?.[0]?.toUpperCase() || '?'}
+                              </div>
+                          }
+                          <div>
+                            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{asset.name}</p>
+                            {asset.serial_number && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>S/N: {asset.serial_number}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3"><span className="chip font-mono text-xs">{asset.asset_code || asset.code || '—'}</span></td>
+                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>{asset.category?.name || asset.categoryName || '—'}</td>
+                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                        {asset.building?.name || asset.buildingName || '—'}
+                      </td>
+                      <td className="px-4 py-3"><span className={getStatusColor(asset.status)} style={{ textTransform:'capitalize' }}>{asset.status}</span></td>
+                      <td className="px-4 py-3"><span className={`badge ${getConditionBadge(asset.condition)}`} style={{ textTransform:'capitalize', fontSize:'11px' }}>{asset.condition || '—'}</span></td>
+                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>{asset.assigned_to || '—'}</td>
+                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>{formatDate(asset.created_at)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => navigate(`/assets/${asset.id}`)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-cyan-500/20"
+                            style={{ color: 'var(--text-muted)' }} title="View"><Eye size={14} /></button>
+                          {canEdit && <>
+                            <button onClick={() => setEditAsset(asset)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-amber-500/20"
+                              style={{ color: 'var(--text-muted)' }} title="Edit"><Pencil size={14} /></button>
+                            <button onClick={() => setDeleteAsset(asset)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-rose-500/20"
+                              style={{ color: 'var(--text-muted)' }} title="Delete"><Trash2 size={14} /></button>
+                          </>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+              }
+            </tbody>
+          </table>
+        </div>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Showing {((page-1)*PAGE_SIZE)+1}–{Math.min(page*PAGE_SIZE,total)} of {total}</p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1}
+                className="w-8 h-8 rounded-lg flex items-center justify-center disabled:opacity-40"
+                style={{ background:'var(--bg-secondary)', color:'var(--text-secondary)' }}><ChevronLeft size={15}/></button>
+              {Array.from({ length: Math.min(5,totalPages) },(_,i)=>i+1).map(p=>(
+                <button key={p} onClick={()=>setPage(p)}
+                  className="w-8 h-8 rounded-lg text-sm font-medium"
+                  style={{ background: page===p ? 'linear-gradient(135deg,#06b6d4,#3b82f6)' : 'var(--bg-secondary)', color: page===p ? 'white' : 'var(--text-secondary)' }}>{p}</button>
+              ))}
+              <button onClick={() => setPage(p => Math.min(totalPages,p+1))} disabled={page===totalPages}
+                className="w-8 h-8 rounded-lg flex items-center justify-center disabled:opacity-40"
+                style={{ background:'var(--bg-secondary)', color:'var(--text-secondary)' }}><ChevronRight size={15}/></button>
+            </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <table className="w-full" style={{ minWidth: 900 }}>
-              <thead className="sticky top-0 z-10" style={{ background: 'rgba(9,14,26,0.97)', backdropFilter: 'blur(8px)' }}>
-                <tr style={{ borderBottom: '2px solid var(--border-subtle)' }}>
-                  <th className="w-8" />
-                  {COLS.map(col => (
-                    <th key={col.key}
-                      className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap"
-                      style={{ color: sort.field === col.key ? '#10b981' : 'var(--text-muted)' }}
-                      onClick={() => toggleSort(col.key)}>
-                      <div className="flex items-center gap-1">
-                        {col.label}
-                        <SortIcon field={col.key} sort={sort} />
-                      </div>
-                    </th>
-                  ))}
-                  <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider"
-                    style={{ color: 'var(--text-muted)' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((asset: any, i: number) => {
-                  const isExpanded = expandedId === asset.id
-                  const extra = asset.extra || {}
-                  const isEven = i % 2 === 0
-                  return (
-                    <>
-                      <motion.tr
-                        key={asset.id}
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i * 0.02, 0.3) }}
-                        className="group cursor-pointer transition-colors"
-                        style={{
-                          borderBottom: '1px solid var(--border-subtle)',
-                          background: isEven ? 'rgba(15,23,42,0.3)' : 'rgba(30,41,59,0.2)',
-                        }}
-                        onClick={() => navigate(`/assets/${asset.id}`)}>
-                        {/* Expand toggle */}
-                        <td className="pl-3 py-3" onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : asset.id) }}>
-                          <ChevronRight size={14}
-                            className="transition-transform"
-                            style={{ color: 'var(--text-muted)', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }} />
-                        </td>
-                        {/* Item Type */}
-                        <td className="px-3 py-3 whitespace-nowrap text-sm" style={{ color: 'var(--text-secondary)' }}>
-                          {asset.category?.name || '—'}
-                        </td>
-                        {/* Item Model */}
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            {asset.image_url
-                              ? <img src={asset.image_url} alt={asset.name} className="w-7 h-7 rounded-md object-cover shrink-0" />
-                              : <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 text-xs font-bold"
-                                  style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
-                                  {asset.name?.[0]?.toUpperCase() || '?'}
-                                </div>
-                            }
-                            <TruncCell value={asset.name} maxW={140} />
-                          </div>
-                        </td>
-                        {/* Stock ID */}
-                        <td className="px-3 py-3">
-                          <span className="font-mono text-xs px-1.5 py-0.5 rounded"
-                            style={{ background: 'var(--bg-tertiary)', color: '#60a5fa' }}>
-                            {asset.asset_code || '—'}
-                          </span>
-                        </td>
-                        {/* Location of Item */}
-                        <td className="px-3 py-3"><TruncCell value={asset.assigned_to} /></td>
-                        {/* Bldg / Room */}
-                        <td className="px-3 py-3 whitespace-nowrap text-sm" style={{ color: 'var(--text-secondary)' }}>
-                          {asset.building?.name || '—'}
-                        </td>
-                        {/* Work Station */}
-                        <td className="px-3 py-3"><TruncCell value={extra.workstation} /></td>
-                        {/* Date of Use */}
-                        <td className="px-3 py-3 whitespace-nowrap text-sm" style={{ color: 'var(--text-muted)' }}>
-                          {extra.date_of_use ? formatDate(extra.date_of_use) : '—'}
-                        </td>
-                        {/* Age Span */}
-                        <td className="px-3 py-3"><TruncCell value={extra.age_span} /></td>
-                        {/* Condition — from utility_asset_extras */}
-                        <td className="px-3 py-3"><ConditionBadge value={extra.utility_condition || ''} /></td>
-                        {/* Actions */}
-                        <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {canEdit && (
-                              <>
-                                <button onClick={() => setEditAsset(asset)}
-                                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-amber-500/20 transition-colors"
-                                  style={{ color: 'var(--text-muted)' }} title="Edit">
-                                  <Pencil size={13} />
-                                </button>
-                                <button onClick={() => setDeleteAsset(asset)}
-                                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-rose-500/20 transition-colors text-rose-400"
-                                  title="Delete">
-                                  <Trash2 size={13} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </motion.tr>
-
-                      {/* Expanded row */}
-                      {isExpanded && (
-                        <tr key={`exp-${asset.id}`}
-                          style={{ background: 'rgba(16,185,129,0.04)', borderBottom: '1px solid var(--border-subtle)' }}>
-                          <td />
-                          <td colSpan={COLS.length + 1} className="px-6 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider mb-1.5"
-                                  style={{ color: 'var(--text-muted)' }}>Item Description</p>
-                                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                                  {asset.description || '—'}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider mb-1.5"
-                                  style={{ color: 'var(--text-muted)' }}>Note</p>
-                                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                                  {extra.note || '—'}
-                                </p>
-                              </div>
-                              {extra.damage_description && (
-                                <div>
-                                  <p className="text-xs font-semibold uppercase tracking-wider mb-1.5 text-rose-400">
-                                    Damage / Incident
-                                  </p>
-                                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                                    {extra.damage_description}
-                                  </p>
-                                </div>
-                              )}
-                              {extra.repair_details && (
-                                <div>
-                                  <p className="text-xs font-semibold uppercase tracking-wider mb-1.5 text-emerald-400">
-                                    Repair Details
-                                  </p>
-                                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                                    {extra.repair_details}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  )
-                })}
-              </tbody>
-            </table>
+        )}
+        {!isLoading && assets.length === 0 && (
+          <div className="py-16 flex flex-col items-center gap-3" style={{ color: 'var(--text-muted)' }}>
+            <Cpu size={40} className="opacity-20" />
+            <p className="font-medium">No IT assets found</p>
           </div>
         )}
       </div>
 
-      {/* Modals */}
-      {(showModal || editAsset) && (
-        <UtilityFormModal
+      {(showAddModal || editAsset) && (
+        <AssetFormModal
           asset={editAsset}
-          onClose={() => { setShowModal(false); setEditAsset(null) }}
+          domain="it"
+          onClose={() => { setShowAddModal(false); setEditAsset(null) }}
           onSuccess={handleSuccess}
+          buildings={buildings}
+          categories={itCategories}
         />
       )}
       {deleteAsset && (
         <DeleteConfirmModal
-          title="Delete Utility Item"
+          title="Delete IT Asset"
           message={`Delete "${deleteAsset.name}"? This cannot be undone.`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteAsset(null)}

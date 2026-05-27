@@ -78,7 +78,7 @@ interface Props {
   onSuccess: () => void
 }
 
-type TabKey = 'details' | 'damage' | 'repair'
+type TabKey = 'details'
 
 /* ─── Main modal component ────────────────────────────────────── */
 export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
@@ -88,7 +88,6 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const [activeTab, setActiveTab] = useState<TabKey>('details')
   const [loading, setLoading] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(asset?.image_url || '')
@@ -134,16 +133,16 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
     note:                          '',
   })
 
-  /* ── Damage report state ── */
-  const [damage, setDamage] = useState({
+  /* ── Damage report state (kept for upsert compatibility but not shown in modal) ── */
+  const [damage] = useState({
     damage_date_reported:  '',
     damage_reported_by:    '',
     damage_description:    '',
     damage_recommendation: '',
   })
 
-  /* ── Repair state ── */
-  const [repair, setRepair] = useState({
+  /* ── Repair state (kept for upsert compatibility but not shown in modal) ── */
+  const [repair] = useState({
     repair_date:    '',
     repair_details: '',
     repair_remarks: '',
@@ -161,23 +160,7 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
       direct_responsible_individual: existingExtra.direct_responsible_individual || '',
       note:                          existingExtra.note                          || '',
     })
-    setDamage({
-      damage_date_reported:  existingExtra.damage_date_reported  || '',
-      damage_reported_by:    existingExtra.damage_reported_by    || '',
-      damage_description:    existingExtra.damage_description    || '',
-      damage_recommendation: existingExtra.damage_recommendation || '',
-    })
-    setRepair({
-      repair_date:    existingExtra.repair_date    || '',
-      repair_details: existingExtra.repair_details || '',
-      repair_remarks: existingExtra.repair_remarks || '',
-    })
   }, [existingExtra])
-
-  /* ── Scroll to top when tab changes ── */
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [activeTab])
 
   /* ── Image handling ── */
   const processImage = async (file: File) => {
@@ -220,8 +203,6 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
 
       await utilityExtraService.upsert(savedAsset.id, {
         ...extra,
-        ...damage,
-        ...repair,
         date_of_use: extra.date_of_use || null,
       })
 
@@ -234,14 +215,6 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
       setLoading(false)
     }
   }
-
-  const tabs: { key: TabKey; label: string }[] = [
-    { key: 'details', label: 'Item Details' },
-    ...(isEdit ? [
-      { key: 'damage' as TabKey, label: 'Damage / Incident' },
-      { key: 'repair' as TabKey, label: 'Repair' },
-    ] : []),
-  ]
 
   return (
     <AnimatePresence>
@@ -271,30 +244,13 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
             </button>
           </div>
 
-          {/* Tabs (edit mode only) */}
-          {isEdit && (
-            <div className="flex gap-1 px-6 pt-3 shrink-0">
-              {tabs.map(t => (
-                <button key={t.key} type="button" onClick={() => setActiveTab(t.key)}
-                  className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
-                  style={{
-                    background: activeTab === t.key ? 'rgba(16,185,129,0.15)' : 'transparent',
-                    color:      activeTab === t.key ? '#10b981' : 'var(--text-muted)',
-                    border:     activeTab === t.key ? '1px solid rgba(16,185,129,0.3)' : '1px solid transparent',
-                  }}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* Scrollable body */}
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
             <div ref={scrollRef} className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
 
-              {/* ── DETAILS TAB ── */}
-              {activeTab === 'details' && (
-                <>
+              {/* ── DETAILS ── */}
+              <>
                   {/* Image upload */}
                   <F label="Item Image">
                     {imagePreview ? (
@@ -492,89 +448,7 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
                     />
                   </F>
                 </>
-              )}
 
-              {/* ── DAMAGE / INCIDENT TAB ── */}
-              {activeTab === 'damage' && isEdit && (
-                <div className="space-y-4">
-                  <div className="p-3 rounded-xl text-sm"
-                    style={{ background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', color: '#fda4af' }}>
-                    Record damage or incident details for this item.
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <F label="Date Reported">
-                      <input
-                        type="date"
-                        value={damage.damage_date_reported}
-                        onChange={e => setDamage(d => ({ ...d, damage_date_reported: e.target.value }))}
-                        className="input-field"
-                      />
-                    </F>
-                    <F label="Reported By">
-                      <input
-                        value={damage.damage_reported_by}
-                        onChange={e => setDamage(d => ({ ...d, damage_reported_by: e.target.value }))}
-                        className="input-field"
-                        placeholder="Full name"
-                      />
-                    </F>
-                  </div>
-                  <F label="Description of Damage">
-                    <textarea
-                      value={damage.damage_description}
-                      onChange={e => setDamage(d => ({ ...d, damage_description: e.target.value }))}
-                      className="input-field resize-none"
-                      rows={3}
-                      placeholder="Describe the damage or incident..."
-                    />
-                  </F>
-                  <F label="Recommendation">
-                    <textarea
-                      value={damage.damage_recommendation}
-                      onChange={e => setDamage(d => ({ ...d, damage_recommendation: e.target.value }))}
-                      className="input-field resize-none"
-                      rows={3}
-                      placeholder="Recommended action..."
-                    />
-                  </F>
-                </div>
-              )}
-
-              {/* ── REPAIR TAB ── */}
-              {activeTab === 'repair' && isEdit && (
-                <div className="space-y-4">
-                  <div className="p-3 rounded-xl text-sm"
-                    style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#6ee7b7' }}>
-                    Log repair work performed on this item.
-                  </div>
-                  <F label="Date of Repair">
-                    <input
-                      type="date"
-                      value={repair.repair_date}
-                      onChange={e => setRepair(r => ({ ...r, repair_date: e.target.value }))}
-                      className="input-field"
-                    />
-                  </F>
-                  <F label="Details">
-                    <textarea
-                      value={repair.repair_details}
-                      onChange={e => setRepair(r => ({ ...r, repair_details: e.target.value }))}
-                      className="input-field resize-none"
-                      rows={3}
-                      placeholder="Work performed..."
-                    />
-                  </F>
-                  <F label="Remarks">
-                    <textarea
-                      value={repair.repair_remarks}
-                      onChange={e => setRepair(r => ({ ...r, repair_remarks: e.target.value }))}
-                      className="input-field resize-none"
-                      rows={3}
-                      placeholder="Additional remarks..."
-                    />
-                  </F>
-                </div>
-              )}
             </div>
 
             {/* Footer */}
@@ -585,9 +459,7 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
                 style={{ background: 'linear-gradient(135deg,#10b981,#06b6d4)' }}>
                 {loading
                   ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : activeTab === 'details'
-                    ? isEdit ? 'Update Item' : 'Add Item'
-                    : 'Save Changes'
+                  : isEdit ? 'Update Item' : 'Add Item'
                 }
               </button>
             </div>
