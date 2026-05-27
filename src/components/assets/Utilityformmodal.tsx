@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Upload, Camera, Image as ImageIcon } from 'lucide-react'
+import { X, Upload, Camera } from 'lucide-react'
 import { useDropzone } from 'react-dropzone'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { assetService, categoryService, buildingService, utilityExtraService } from '@/services'
@@ -39,6 +39,38 @@ async function toWebP(file: File): Promise<File> {
   })
 }
 
+/* ─── Field wrapper — defined OUTSIDE the modal component so it
+       never gets a new identity on each render, which would cause
+       inputs to unmount/remount and lose focus after every keystroke ── */
+function F({ label, required, children }: {
+  label: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label className="label-text block mb-1.5">
+        {label}{required && <span className="text-rose-400 ml-1">*</span>}
+      </label>
+      {children}
+    </div>
+  )
+}
+
+/* ─── Condition badge helper ──────────────────────────────────── */
+function conditionColor(c: string) {
+  const map: Record<string, { bg: string; color: string }> = {
+    'Working - Assigned':   { bg: 'rgba(16,185,129,0.15)',  color: '#10b981' },
+    'Working - In Storage': { bg: 'rgba(59,130,246,0.15)',  color: '#3b82f6' },
+    'For Testing':          { bg: 'rgba(245,158,11,0.15)',  color: '#f59e0b' },
+    'Not Tested':           { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' },
+    'Defective':            { bg: 'rgba(249,115,22,0.15)',  color: '#f97316' },
+    'Damaged':              { bg: 'rgba(244,63,94,0.15)',   color: '#f43f5e' },
+    'For Disposal':         { bg: 'rgba(127,29,29,0.25)',   color: '#fca5a5' },
+  }
+  return map[c] || { bg: 'rgba(148,163,184,0.1)', color: '#94a3b8' }
+}
+
 /* ─── Props ───────────────────────────────────────────────────── */
 interface Props {
   asset?: Asset | null
@@ -48,25 +80,13 @@ interface Props {
 
 type TabKey = 'details' | 'damage' | 'repair'
 
-/* ─── Condition badge helper ──────────────────────────────────── */
-function conditionColor(c: string) {
-  const map: Record<string, { bg: string; color: string }> = {
-    'Working - Assigned':  { bg: 'rgba(16,185,129,0.15)',  color: '#10b981' },
-    'Working - In Storage':{ bg: 'rgba(59,130,246,0.15)',  color: '#3b82f6' },
-    'For Testing':         { bg: 'rgba(245,158,11,0.15)',  color: '#f59e0b' },
-    'Not Tested':          { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' },
-    'Defective':           { bg: 'rgba(249,115,22,0.15)',  color: '#f97316' },
-    'Damaged':             { bg: 'rgba(244,63,94,0.15)',   color: '#f43f5e' },
-    'For Disposal':        { bg: 'rgba(127,29,29,0.25)',   color: '#fca5a5' },
-  }
-  return map[c] || { bg: 'rgba(148,163,184,0.1)', color: '#94a3b8' }
-}
-
+/* ─── Main modal component ────────────────────────────────────── */
 export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
   const { user } = useAuthStore()
   const qc = useQueryClient()
   const isEdit = !!asset
   const cameraRef = useRef<HTMLInputElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const [activeTab, setActiveTab] = useState<TabKey>('details')
   const [loading, setLoading] = useState(false)
@@ -93,41 +113,71 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
 
   /* ── Asset form state ── */
   const [form, setForm] = useState({
-    name:           asset?.name           || '',
-    asset_code:     asset?.asset_code     || '',
-    category_id:    asset?.category_id    || '',
-    building_id:    asset?.building_id    || '',
-    serial_number:  asset?.serial_number  || '',
-    assigned_to:    asset?.assigned_to    || '',
-    description:    asset?.description    || '',
-    purchase_date:  asset?.purchase_date  || '',
+    name:          asset?.name          || '',
+    asset_code:    asset?.asset_code    || '',
+    category_id:   asset?.category_id   || '',
+    building_id:   asset?.building_id   || '',
+    serial_number: asset?.serial_number || '',
+    assigned_to:   asset?.assigned_to   || '',
+    description:   asset?.description   || '',
+    purchase_date: asset?.purchase_date || '',
   })
 
   /* ── Utility extra state ── */
   const [extra, setExtra] = useState({
-    workstation:                  existingExtra?.workstation                  || '',
-    designated_department:        existingExtra?.designated_department        || '',
-    date_of_use:                  existingExtra?.date_of_use                  || '',
-    age_span:                     existingExtra?.age_span                     || '',
-    utility_condition:            existingExtra?.utility_condition            || '',
-    direct_responsible_individual:existingExtra?.direct_responsible_individual|| '',
-    note:                         existingExtra?.note                         || '',
+    workstation:                   '',
+    designated_department:         '',
+    date_of_use:                   '',
+    age_span:                      '',
+    utility_condition:             '',
+    direct_responsible_individual: '',
+    note:                          '',
   })
 
   /* ── Damage report state ── */
   const [damage, setDamage] = useState({
-    damage_date_reported:  existingExtra?.damage_date_reported  || '',
-    damage_reported_by:    existingExtra?.damage_reported_by    || '',
-    damage_description:    existingExtra?.damage_description    || '',
-    damage_recommendation: existingExtra?.damage_recommendation || '',
+    damage_date_reported:  '',
+    damage_reported_by:    '',
+    damage_description:    '',
+    damage_recommendation: '',
   })
 
   /* ── Repair state ── */
   const [repair, setRepair] = useState({
-    repair_date:    existingExtra?.repair_date    || '',
-    repair_details: existingExtra?.repair_details || '',
-    repair_remarks: existingExtra?.repair_remarks || '',
+    repair_date:    '',
+    repair_details: '',
+    repair_remarks: '',
   })
+
+  /* ── Populate states once existing extra query resolves ── */
+  useEffect(() => {
+    if (!existingExtra) return
+    setExtra({
+      workstation:                   existingExtra.workstation                   || '',
+      designated_department:         existingExtra.designated_department         || '',
+      date_of_use:                   existingExtra.date_of_use                   || '',
+      age_span:                      existingExtra.age_span                      || '',
+      utility_condition:             existingExtra.utility_condition             || '',
+      direct_responsible_individual: existingExtra.direct_responsible_individual || '',
+      note:                          existingExtra.note                          || '',
+    })
+    setDamage({
+      damage_date_reported:  existingExtra.damage_date_reported  || '',
+      damage_reported_by:    existingExtra.damage_reported_by    || '',
+      damage_description:    existingExtra.damage_description    || '',
+      damage_recommendation: existingExtra.damage_recommendation || '',
+    })
+    setRepair({
+      repair_date:    existingExtra.repair_date    || '',
+      repair_details: existingExtra.repair_details || '',
+      repair_remarks: existingExtra.repair_remarks || '',
+    })
+  }, [existingExtra])
+
+  /* ── Scroll to top when tab changes ── */
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [activeTab])
 
   /* ── Image handling ── */
   const processImage = async (file: File) => {
@@ -145,10 +195,10 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
   /* ── Submit ── */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) { toast.error('Item Model is required'); return }
-    if (!form.asset_code.trim()) { toast.error('Stock ID is required'); return }
-    if (!form.category_id) { toast.error('Item Type is required'); return }
-    if (!form.building_id) { toast.error('Building is required'); return }
+    if (!form.name.trim())     { toast.error('Item Model is required'); return }
+    if (!form.asset_code.trim()){ toast.error('Stock ID is required'); return }
+    if (!form.category_id)     { toast.error('Item Type is required'); return }
+    if (!form.building_id)     { toast.error('Building is required'); return }
 
     setLoading(true)
     try {
@@ -168,7 +218,6 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
         toast.success('Item added')
       }
 
-      // Save extra fields
       await utilityExtraService.upsert(savedAsset.id, {
         ...extra,
         ...damage,
@@ -194,27 +243,19 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
     ] : []),
   ]
 
-  const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
-    <div>
-      <label className="label-text block mb-1.5">
-        {label}{required && <span className="text-rose-400 ml-1">*</span>}
-      </label>
-      {children}
-    </div>
-  )
-
   return (
     <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 modal-overlay"
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay"
         onClick={e => e.target === e.currentTarget && onClose()}>
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           className="w-full md:max-w-2xl glass-card flex flex-col"
-          style={{ maxHeight: '92vh', borderRadius: 'clamp(0px, 16px, 16px)' }}
-        >
+          style={{ maxHeight: '92vh', borderRadius: '16px' }}>
+
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 shrink-0"
             style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -223,20 +264,23 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
                 style={{ background: 'linear-gradient(135deg,#10b981,#06b6d4)' }}>U</div>
               <h2 className="section-title">{isEdit ? 'Edit Utility Item' : 'Add Utility Item'}</h2>
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10"
-              style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
+            <button onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10"
+              style={{ color: 'var(--text-muted)' }}>
+              <X size={16} />
+            </button>
           </div>
 
-          {/* Tabs — edit only shows damage/repair tabs */}
+          {/* Tabs (edit mode only) */}
           {isEdit && (
             <div className="flex gap-1 px-6 pt-3 shrink-0">
               {tabs.map(t => (
-                <button key={t.key} onClick={() => setActiveTab(t.key)}
+                <button key={t.key} type="button" onClick={() => setActiveTab(t.key)}
                   className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
                   style={{
                     background: activeTab === t.key ? 'rgba(16,185,129,0.15)' : 'transparent',
-                    color: activeTab === t.key ? '#10b981' : 'var(--text-muted)',
-                    border: activeTab === t.key ? '1px solid rgba(16,185,129,0.3)' : '1px solid transparent',
+                    color:      activeTab === t.key ? '#10b981' : 'var(--text-muted)',
+                    border:     activeTab === t.key ? '1px solid rgba(16,185,129,0.3)' : '1px solid transparent',
                   }}>
                   {t.label}
                 </button>
@@ -244,14 +288,14 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
             </div>
           )}
 
-          {/* Body */}
-          <form onSubmit={handleSubmit} className="overflow-y-auto flex-1">
-            <div className="px-6 py-4 space-y-4">
+          {/* Scrollable body */}
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+            <div ref={scrollRef} className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
 
               {/* ── DETAILS TAB ── */}
               {activeTab === 'details' && (
                 <>
-                  {/* Image */}
+                  {/* Image upload */}
                   <F label="Item Image">
                     {imagePreview ? (
                       <div className="relative w-full h-40 rounded-xl overflow-hidden">
@@ -259,7 +303,8 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
                         <div className="absolute top-2 right-2 flex gap-1.5">
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium"
                             style={{ background: 'rgba(0,0,0,0.6)', color: '#10b981' }}>.webp ✓</span>
-                          <button type="button" onClick={() => { setImagePreview(''); setImageFile(null) }}
+                          <button type="button"
+                            onClick={() => { setImagePreview(''); setImageFile(null) }}
                             className="w-7 h-7 rounded-full flex items-center justify-center"
                             style={{ background: 'rgba(0,0,0,0.6)' }}>
                             <X size={13} className="text-white" />
@@ -268,8 +313,9 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <div {...getRootProps()} className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors
-                          ${isDragActive ? 'border-emerald-400 bg-emerald-400/5' : 'border-slate-700 hover:border-slate-500'}`}>
+                        <div {...getRootProps()}
+                          className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors
+                            ${isDragActive ? 'border-emerald-400 bg-emerald-400/5' : 'border-slate-700 hover:border-slate-500'}`}>
                           <input {...getInputProps()} />
                           <Upload size={22} className="mx-auto mb-1" style={{ color: 'var(--text-muted)' }} />
                           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -283,32 +329,49 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
                           <Camera size={15} /> Take Photo
                         </button>
                         <input ref={cameraRef} type="file" accept="image/*" capture="environment"
-                          className="hidden" onChange={async e => { const f = e.target.files?.[0]; if (f) await processImage(f); e.target.value = '' }} />
+                          className="hidden"
+                          onChange={async e => {
+                            const f = e.target.files?.[0]
+                            if (f) await processImage(f)
+                            e.target.value = ''
+                          }} />
                       </div>
                     )}
                   </F>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <F label="Item Model" required>
-                      <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                        className="input-field" placeholder="e.g. Executive Chair Model X" />
+                      <input
+                        value={form.name}
+                        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                        className="input-field"
+                        placeholder="e.g. Executive Chair Model X"
+                      />
                     </F>
                     <F label="Stock ID" required>
-                      <input value={form.asset_code} onChange={e => setForm(f => ({ ...f, asset_code: e.target.value }))}
-                        className="input-field font-mono" placeholder="e.g. UTL-001" />
+                      <input
+                        value={form.asset_code}
+                        onChange={e => setForm(f => ({ ...f, asset_code: e.target.value }))}
+                        className="input-field font-mono"
+                        placeholder="e.g. UTL-001"
+                      />
                     </F>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <F label="Item Type (Category)" required>
-                      <select value={form.category_id} onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
+                      <select
+                        value={form.category_id}
+                        onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
                         className="select-field">
                         <option value="">Select item type...</option>
                         {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </F>
                     <F label="Bldg / Room" required>
-                      <select value={form.building_id} onChange={e => setForm(f => ({ ...f, building_id: e.target.value }))}
+                      <select
+                        value={form.building_id}
+                        onChange={e => setForm(f => ({ ...f, building_id: e.target.value }))}
                         className="select-field">
                         <option value="">Select building...</option>
                         {buildings.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -318,22 +381,36 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <F label="Serial Number">
-                      <input value={form.serial_number} onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))}
-                        className="input-field" placeholder="e.g. SN123456" />
+                      <input
+                        value={form.serial_number}
+                        onChange={e => setForm(f => ({ ...f, serial_number: e.target.value }))}
+                        className="input-field"
+                        placeholder="e.g. SN123456"
+                      />
                     </F>
                     <F label="Location of Item">
-                      <input value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}
-                        className="input-field" placeholder="e.g. Room 201 / Storage A" />
+                      <input
+                        value={form.assigned_to}
+                        onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}
+                        className="input-field"
+                        placeholder="e.g. Room 201 / Storage A"
+                      />
                     </F>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <F label="Workstation">
-                      <input value={extra.workstation} onChange={e => setExtra(x => ({ ...x, workstation: e.target.value }))}
-                        className="input-field" placeholder="e.g. WS-01" />
+                      <input
+                        value={extra.workstation}
+                        onChange={e => setExtra(x => ({ ...x, workstation: e.target.value }))}
+                        className="input-field"
+                        placeholder="e.g. WS-01"
+                      />
                     </F>
                     <F label="Designated Department">
-                      <select value={extra.designated_department} onChange={e => setExtra(x => ({ ...x, designated_department: e.target.value }))}
+                      <select
+                        value={extra.designated_department}
+                        onChange={e => setExtra(x => ({ ...x, designated_department: e.target.value }))}
                         className="select-field">
                         <option value="">Select department...</option>
                         {DESIGNATED_DEPARTMENT_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -343,18 +420,28 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <F label="Date of Use">
-                      <input type="date" value={extra.date_of_use} onChange={e => setExtra(x => ({ ...x, date_of_use: e.target.value }))}
-                        className="input-field" />
+                      <input
+                        type="date"
+                        value={extra.date_of_use}
+                        onChange={e => setExtra(x => ({ ...x, date_of_use: e.target.value }))}
+                        className="input-field"
+                      />
                     </F>
                     <F label="Age Span">
-                      <input value={extra.age_span} onChange={e => setExtra(x => ({ ...x, age_span: e.target.value }))}
-                        className="input-field" placeholder="e.g. 2 years" />
+                      <input
+                        value={extra.age_span}
+                        onChange={e => setExtra(x => ({ ...x, age_span: e.target.value }))}
+                        className="input-field"
+                        placeholder="e.g. 2 years"
+                      />
                     </F>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <F label="Condition" required>
-                      <select value={extra.utility_condition} onChange={e => setExtra(x => ({ ...x, utility_condition: e.target.value }))}
+                    <F label="Condition">
+                      <select
+                        value={extra.utility_condition}
+                        onChange={e => setExtra(x => ({ ...x, utility_condition: e.target.value }))}
                         className="select-field">
                         <option value="">Select condition...</option>
                         {UTILITY_CONDITION_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
@@ -367,30 +454,47 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
                       )}
                     </F>
                     <F label="Purchase Date">
-                      <input type="date" value={form.purchase_date} onChange={e => setForm(f => ({ ...f, purchase_date: e.target.value }))}
-                        className="input-field" />
+                      <input
+                        type="date"
+                        value={form.purchase_date}
+                        onChange={e => setForm(f => ({ ...f, purchase_date: e.target.value }))}
+                        className="input-field"
+                      />
                     </F>
                   </div>
 
                   <F label="Direct Responsible Individual">
-                    <input value={extra.direct_responsible_individual}
+                    <input
+                      value={extra.direct_responsible_individual}
                       onChange={e => setExtra(x => ({ ...x, direct_responsible_individual: e.target.value }))}
-                      className="input-field" placeholder="Full name of responsible person" />
+                      className="input-field"
+                      placeholder="Full name of responsible person"
+                    />
                   </F>
 
                   <F label="Item Description">
-                    <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                      className="input-field resize-none" rows={2} placeholder="Optional description..." />
+                    <textarea
+                      value={form.description}
+                      onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                      className="input-field resize-none"
+                      rows={2}
+                      placeholder="Optional description..."
+                    />
                   </F>
 
                   <F label="Note">
-                    <textarea value={extra.note} onChange={e => setExtra(x => ({ ...x, note: e.target.value }))}
-                      className="input-field resize-none" rows={2} placeholder="Additional notes..." />
+                    <textarea
+                      value={extra.note}
+                      onChange={e => setExtra(x => ({ ...x, note: e.target.value }))}
+                      className="input-field resize-none"
+                      rows={2}
+                      placeholder="Additional notes..."
+                    />
                   </F>
                 </>
               )}
 
-              {/* ── DAMAGE / INCIDENT TAB (edit only) ── */}
+              {/* ── DAMAGE / INCIDENT TAB ── */}
               {activeTab === 'damage' && isEdit && (
                 <div className="space-y-4">
                   <div className="p-3 rounded-xl text-sm"
@@ -399,30 +503,44 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <F label="Date Reported">
-                      <input type="date" value={damage.damage_date_reported}
+                      <input
+                        type="date"
+                        value={damage.damage_date_reported}
                         onChange={e => setDamage(d => ({ ...d, damage_date_reported: e.target.value }))}
-                        className="input-field" />
+                        className="input-field"
+                      />
                     </F>
                     <F label="Reported By">
-                      <input value={damage.damage_reported_by}
+                      <input
+                        value={damage.damage_reported_by}
                         onChange={e => setDamage(d => ({ ...d, damage_reported_by: e.target.value }))}
-                        className="input-field" placeholder="Full name" />
+                        className="input-field"
+                        placeholder="Full name"
+                      />
                     </F>
                   </div>
                   <F label="Description of Damage">
-                    <textarea value={damage.damage_description}
+                    <textarea
+                      value={damage.damage_description}
                       onChange={e => setDamage(d => ({ ...d, damage_description: e.target.value }))}
-                      className="input-field resize-none" rows={3} placeholder="Describe the damage or incident..." />
+                      className="input-field resize-none"
+                      rows={3}
+                      placeholder="Describe the damage or incident..."
+                    />
                   </F>
                   <F label="Recommendation">
-                    <textarea value={damage.damage_recommendation}
+                    <textarea
+                      value={damage.damage_recommendation}
                       onChange={e => setDamage(d => ({ ...d, damage_recommendation: e.target.value }))}
-                      className="input-field resize-none" rows={3} placeholder="Recommended action..." />
+                      className="input-field resize-none"
+                      rows={3}
+                      placeholder="Recommended action..."
+                    />
                   </F>
                 </div>
               )}
 
-              {/* ── REPAIR TAB (edit only) ── */}
+              {/* ── REPAIR TAB ── */}
               {activeTab === 'repair' && isEdit && (
                 <div className="space-y-4">
                   <div className="p-3 rounded-xl text-sm"
@@ -430,19 +548,30 @@ export default function UtilityFormModal({ asset, onClose, onSuccess }: Props) {
                     Log repair work performed on this item.
                   </div>
                   <F label="Date of Repair">
-                    <input type="date" value={repair.repair_date}
+                    <input
+                      type="date"
+                      value={repair.repair_date}
                       onChange={e => setRepair(r => ({ ...r, repair_date: e.target.value }))}
-                      className="input-field" />
+                      className="input-field"
+                    />
                   </F>
                   <F label="Details">
-                    <textarea value={repair.repair_details}
+                    <textarea
+                      value={repair.repair_details}
                       onChange={e => setRepair(r => ({ ...r, repair_details: e.target.value }))}
-                      className="input-field resize-none" rows={3} placeholder="Work performed..." />
+                      className="input-field resize-none"
+                      rows={3}
+                      placeholder="Work performed..."
+                    />
                   </F>
                   <F label="Remarks">
-                    <textarea value={repair.repair_remarks}
+                    <textarea
+                      value={repair.repair_remarks}
                       onChange={e => setRepair(r => ({ ...r, repair_remarks: e.target.value }))}
-                      className="input-field resize-none" rows={3} placeholder="Additional remarks..." />
+                      className="input-field resize-none"
+                      rows={3}
+                      placeholder="Additional remarks..."
+                    />
                   </F>
                 </div>
               )}

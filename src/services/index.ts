@@ -355,3 +355,95 @@ export const utilityExtraService = {
     }
   },
 }
+
+export const incidentService = {
+  async getByAssetId(assetId: string) {
+    const { data, error } = await supabase
+      .from('utility_incident_logs')
+      .select('*')
+      .eq('asset_id', assetId)
+      .order('date_reported', { ascending: false })
+    if (error) throw error
+    return data || []
+  },
+
+  async create(payload: {
+    asset_id: string
+    date_reported: string | null
+    reported_by: string
+    description: string
+    recommendation: string
+  }) {
+    const { data, error } = await supabase
+      .from('utility_incident_logs')
+      .insert({ ...payload, created_at: new Date().toISOString() })
+      .select().single()
+    if (error) throw error
+    return data
+  },
+
+  async update(id: string, payload: Partial<{
+    date_reported: string | null
+    reported_by: string
+    description: string
+    recommendation: string
+  }>) {
+    const { data, error } = await supabase
+      .from('utility_incident_logs')
+      .update(payload)
+      .eq('id', id)
+      .select().single()
+    if (error) throw error
+    return data
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase.from('utility_incident_logs').delete().eq('id', id)
+    if (error) throw error
+  },
+}
+
+export const repairService = {
+  async getByAssetId(assetId: string) {
+    const { data, error } = await supabase
+      .from('utility_repair_logs')
+      .select('*')
+      .eq('asset_id', assetId)
+      .order('date_of_repair', { ascending: false })
+    if (error) throw error
+    return data || []
+  },
+
+  async create(payload: {
+    asset_id: string
+    date_of_repair: string | null
+    details: string
+    remarks: string
+  }) {
+    const { data, error } = await supabase
+      .from('utility_repair_logs')
+      .insert({ ...payload, created_at: new Date().toISOString() })
+      .select().single()
+    if (error) throw error
+    return data
+  },
+
+  async update(id: string, payload: Partial<{
+    date_of_repair: string | null
+    details: string
+    remarks: string
+  }>) {
+    const { data, error } = await supabase
+      .from('utility_repair_logs')
+      .update(payload)
+      .eq('id', id)
+      .select().single()
+    if (error) throw error
+    return data
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase.from('utility_repair_logs').delete().eq('id', id)
+    if (error) throw error
+  },
+}

@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Plus, Search, Armchair, Eye, Pencil, Trash2,
-  ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight
+  Plus, Search, Armchair, Pencil, Trash2, Filter,
+  ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight, X
 } from 'lucide-react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { assetService, buildingService, categoryService, utilityExtraService } from '@/services'
@@ -58,17 +58,15 @@ function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: 
 }
 
 const COLS = [
-  { key: 'category',   label: 'Item Type' },
-  { key: 'name',       label: 'Item Model' },
-  { key: 'asset_code', label: 'Stock ID' },
-  { key: 'assigned_to',label: 'Location of Item' },
-  { key: 'workstation',label: 'Workstation' },
-  { key: 'building',   label: 'Bldg / Room' },
-  { key: 'department', label: 'Department' },
-  { key: 'date_of_use',label: 'Date of Use' },
-  { key: 'age_span',   label: 'Age Span' },
-  { key: 'condition',  label: 'Condition' },
-  { key: 'dri',        label: 'Responsible Individual' },
+  { key: 'category',    label: 'Item Type' },
+  { key: 'name',        label: 'Item Model' },
+  { key: 'asset_code',  label: 'Stock ID' },
+  { key: 'assigned_to', label: 'Location of Item' },
+  { key: 'building',    label: 'Bldg / Room' },
+  { key: 'workstation', label: 'Work Station' },
+  { key: 'date_of_use', label: 'Date of Use' },
+  { key: 'age_span',    label: 'Age Span' },
+  { key: 'condition',   label: 'Condition' },
 ]
 
 export default function UtilityAssetsPage() {
@@ -77,20 +75,21 @@ export default function UtilityAssetsPage() {
   const { isAdmin, isUtility } = useAuth()
   const canEdit = isAdmin || isUtility
 
-  const [showModal, setShowModal]       = useState(false)
-  const [editAsset, setEditAsset]       = useState<Asset | null>(null)
-  const [deleteAsset, setDeleteAsset]   = useState<Asset | null>(null)
-  const [deleteLoading, setDeleteLoading] = useState(false)
-  const [expandedId, setExpandedId]     = useState<string | null>(null)
+  const [showModal, setShowModal]           = useState(false)
+  const [editAsset, setEditAsset]           = useState<Asset | null>(null)
+  const [deleteAsset, setDeleteAsset]       = useState<Asset | null>(null)
+  const [deleteLoading, setDeleteLoading]   = useState(false)
+  const [expandedId, setExpandedId]         = useState<string | null>(null)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
 
-  const [search, setSearch]                   = useState('')
+  const [search, setSearch]                         = useState('')
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
   const [selectedBuilding, setSelectedBuilding]     = useState('')
   const [selectedCondition, setSelectedCondition]   = useState('')
   const [selectedDept, setSelectedDept]             = useState('')
   const [sort, setSort] = useState<{ field: string; dir: SortDir }>({ field: '', dir: null })
 
-  const { data: buildings = [] } = useQuery({ queryKey: ['buildings'], queryFn: () => buildingService.getAll(), staleTime: 0 })
+  const { data: buildings = [] }        = useQuery({ queryKey: ['buildings'],          queryFn: () => buildingService.getAll(),              staleTime: 0 })
   const { data: utilityCategories = [] } = useQuery({ queryKey: ['categories-utility'], queryFn: () => categoryService.getByType('utility'), staleTime: 0 })
 
   const { data: assetsData, isLoading } = useQuery({
@@ -100,7 +99,6 @@ export default function UtilityAssetsPage() {
     refetchOnWindowFocus: true,
   })
 
-  // Fetch extras for all assets
   const allAssets: Asset[] = assetsData?.data || []
   const assetIds = allAssets.map(a => a.id)
 
@@ -122,13 +120,12 @@ export default function UtilityAssetsPage() {
   const extrasMap: Record<string, any> = {}
   allExtras.forEach((e: any) => { extrasMap[e.asset_id] = e })
 
-  // Build enriched rows
   const rows = allAssets.map(a => ({ ...a, extra: extrasMap[a.id] || {} }))
 
   // Client-side filter by condition + department
   const filtered = rows.filter(a => {
     if (selectedCondition && a.extra.utility_condition !== selectedCondition) return false
-    if (selectedDept && a.extra.designated_department !== selectedDept) return false
+    if (selectedDept      && a.extra.designated_department !== selectedDept)  return false
     return true
   })
 
@@ -185,6 +182,7 @@ export default function UtilityAssetsPage() {
     setSelectedCondition(''); setSelectedDept('')
   }
   const hasFilters = search || selectedCategoryId || selectedBuilding || selectedCondition || selectedDept
+  const activeFilterCount = [selectedCategoryId, selectedBuilding, selectedCondition, selectedDept].filter(Boolean).length
 
   return (
     <DashboardLayout title="Utility Assets">
@@ -202,41 +200,88 @@ export default function UtilityAssetsPage() {
             {sorted.length} item{sorted.length !== 1 ? 's' : ''} found
           </p>
         </div>
-        {canEdit && (
-          <button onClick={() => { setEditAsset(null); setShowModal(true) }} className="btn-primary"
-            style={{ background: 'linear-gradient(135deg,#10b981,#06b6d4)' }}>
-            <Plus size={15} /> Add Item
+        <div className="flex items-center gap-2">
+          {/* Filter button beside Add Item */}
+          <button
+            onClick={() => setShowFilterPanel(v => !v)}
+            className="btn-secondary relative"
+            style={showFilterPanel ? { borderColor: 'rgba(16,185,129,0.5)', color: '#10b981' } : {}}>
+            <Filter size={14} />
+            Filter
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center"
+                style={{ background: '#10b981', color: '#fff' }}>
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          {canEdit && (
+            <button onClick={() => { setEditAsset(null); setShowModal(true) }} className="btn-primary"
+              style={{ background: 'linear-gradient(135deg,#10b981,#06b6d4)' }}>
+              <Plus size={15} /> Add Item
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Search bar always visible */}
+      <div className="relative mb-3">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          className="input-field pl-8 text-sm py-2" placeholder="Search model, stock ID, location..." />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+            <X size={13} />
           </button>
         )}
       </div>
 
-      {/* Filters */}
-      <div className="glass-card p-3 mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-44">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            className="input-field pl-8 text-sm py-2" placeholder="Search model, stock ID, location..." />
-        </div>
-        <select value={selectedCategoryId} onChange={e => setSelectedCategoryId(e.target.value)} className="select-field text-sm min-w-36">
-          <option value="">All Item Types</option>
-          {utilityCategories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select value={selectedBuilding} onChange={e => setSelectedBuilding(e.target.value)} className="select-field text-sm min-w-36">
-          <option value="">All Buildings</option>
-          {buildings.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-        <select value={selectedCondition} onChange={e => setSelectedCondition(e.target.value)} className="select-field text-sm min-w-36">
-          <option value="">All Conditions</option>
-          {UTILITY_CONDITION_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={selectedDept} onChange={e => setSelectedDept(e.target.value)} className="select-field text-sm min-w-36">
-          <option value="">All Departments</option>
-          {DESIGNATED_DEPARTMENT_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
-        {hasFilters && (
-          <button onClick={clearFilters} className="btn-secondary text-sm py-2">Clear</button>
+      {/* Filter panel — shown when filter button is clicked */}
+      <AnimatePresence>
+        {showFilterPanel && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="glass-card p-4 mb-4 overflow-hidden">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="label-text block mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>All Item Types</label>
+                <select value={selectedCategoryId} onChange={e => setSelectedCategoryId(e.target.value)} className="select-field text-sm">
+                  <option value="">All Item Types</option>
+                  {utilityCategories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label-text block mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>All Buildings</label>
+                <select value={selectedBuilding} onChange={e => setSelectedBuilding(e.target.value)} className="select-field text-sm">
+                  <option value="">All Buildings</option>
+                  {buildings.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label-text block mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>All Conditions</label>
+                <select value={selectedCondition} onChange={e => setSelectedCondition(e.target.value)} className="select-field text-sm">
+                  <option value="">All Conditions</option>
+                  {UTILITY_CONDITION_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label-text block mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>All Departments</label>
+                <select value={selectedDept} onChange={e => setSelectedDept(e.target.value)} className="select-field text-sm">
+                  <option value="">All Departments</option>
+                  {DESIGNATED_DEPARTMENT_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            </div>
+            {hasFilters && (
+              <div className="flex justify-end mt-3">
+                <button onClick={clearFilters} className="btn-secondary text-xs py-1.5 px-3">Clear Filters</button>
+              </div>
+            )}
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
       {/* Table */}
       <div className="glass-card overflow-hidden">
@@ -251,7 +296,7 @@ export default function UtilityAssetsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <table className="w-full" style={{ minWidth: 1100 }}>
+            <table className="w-full" style={{ minWidth: 900 }}>
               <thead className="sticky top-0 z-10" style={{ background: 'rgba(9,14,26,0.97)', backdropFilter: 'blur(8px)' }}>
                 <tr style={{ borderBottom: '2px solid var(--border-subtle)' }}>
                   <th className="w-8" />
@@ -285,9 +330,9 @@ export default function UtilityAssetsPage() {
                           borderBottom: '1px solid var(--border-subtle)',
                           background: isEven ? 'rgba(15,23,42,0.3)' : 'rgba(30,41,59,0.2)',
                         }}
-                        onClick={() => setExpandedId(isExpanded ? null : asset.id)}>
+                        onClick={() => navigate(`/assets/${asset.id}`)}>
                         {/* Expand toggle */}
-                        <td className="pl-3 py-3">
+                        <td className="pl-3 py-3" onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : asset.id) }}>
                           <ChevronRight size={14}
                             className="transition-transform"
                             style={{ color: 'var(--text-muted)', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }} />
@@ -318,33 +363,23 @@ export default function UtilityAssetsPage() {
                         </td>
                         {/* Location of Item */}
                         <td className="px-3 py-3"><TruncCell value={asset.assigned_to} /></td>
-                        {/* Workstation */}
-                        <td className="px-3 py-3"><TruncCell value={extra.workstation} /></td>
                         {/* Bldg / Room */}
                         <td className="px-3 py-3 whitespace-nowrap text-sm" style={{ color: 'var(--text-secondary)' }}>
                           {asset.building?.name || '—'}
                         </td>
-                        {/* Department */}
-                        <td className="px-3 py-3"><TruncCell value={extra.designated_department} /></td>
+                        {/* Work Station */}
+                        <td className="px-3 py-3"><TruncCell value={extra.workstation} /></td>
                         {/* Date of Use */}
                         <td className="px-3 py-3 whitespace-nowrap text-sm" style={{ color: 'var(--text-muted)' }}>
                           {extra.date_of_use ? formatDate(extra.date_of_use) : '—'}
                         </td>
                         {/* Age Span */}
                         <td className="px-3 py-3"><TruncCell value={extra.age_span} /></td>
-                        {/* Condition */}
+                        {/* Condition — from utility_asset_extras */}
                         <td className="px-3 py-3"><ConditionBadge value={extra.utility_condition || ''} /></td>
-                        {/* Direct Responsible Individual */}
-                        <td className="px-3 py-3"><TruncCell value={extra.direct_responsible_individual} /></td>
                         {/* Actions */}
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={e => e.stopPropagation()}>
-                            <button onClick={() => navigate(`/assets/${asset.id}`)}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-cyan-500/20 transition-colors"
-                              style={{ color: 'var(--text-muted)' }} title="View">
-                              <Eye size={13} />
-                            </button>
+                        <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             {canEdit && (
                               <>
                                 <button onClick={() => setEditAsset(asset)}
@@ -363,7 +398,7 @@ export default function UtilityAssetsPage() {
                         </td>
                       </motion.tr>
 
-                      {/* Expanded row — shows Description + Note */}
+                      {/* Expanded row */}
                       {isExpanded && (
                         <tr key={`exp-${asset.id}`}
                           style={{ background: 'rgba(16,185,129,0.04)', borderBottom: '1px solid var(--border-subtle)' }}>

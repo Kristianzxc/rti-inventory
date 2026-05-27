@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Building2, Users, BarChart3,
   FileText, Settings, Wrench, Layers, ChevronLeft,
-  Bell, Cpu, Armchair, ArrowLeftRight, Tag, PackageCheck, X, LogOut
+  Bell, Cpu, Armchair, ArrowLeftRight, Tag, PackageCheck, X, LogOut, History
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useUIStore } from '@/store'
@@ -27,6 +27,7 @@ const IT_ADMIN_EXTRA = [
 const UTILITY_NAV = [
   { label: 'Dashboard',       icon: LayoutDashboard, path: '/utility-dashboard' },
   { label: 'Utility Assets',  icon: Armchair,        path: '/utility-assets' },
+  { label: 'History',         icon: History,         path: '/utility-history' },
   { label: 'Buildings',       icon: Building2,       path: '/buildings' },
   { label: 'Categories',      icon: Tag,             path: '/categories' },
   { label: 'Utility Reports', icon: FileText,        path: '/utility-reports' },
@@ -58,23 +59,20 @@ export default function Sidebar() {
     setMobileMenuOpen(false)
   }
 
-  const handleNavClick = () => {
-    // Close mobile menu on nav
-    setMobileMenuOpen(false)
-  }
+  const handleNavClick = () => setMobileMenuOpen(false)
 
   const sidebarContent = (isMobile = false) => (
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="flex items-center h-16 px-4 shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+          <div className="w-5 h-5 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: 'var(--gradient-brand)' }}>
             <Layers size={16} className="text-white" />
           </div>
           {(!sidebarCollapsed || isMobile) && (
             <span className="font-display font-bold text-lg gradient-text whitespace-nowrap">
-              AssetVault
+              RTI Inventory System
             </span>
           )}
         </div>
@@ -145,8 +143,7 @@ export default function Sidebar() {
                 'sidebar-item',
                 isActive && 'active',
                 sidebarCollapsed && !isMobile && 'justify-center px-0'
-              )}
-            >
+              )}>
               <item.icon size={18} className="shrink-0" />
               {(!sidebarCollapsed || isMobile) && (
                 <span className="whitespace-nowrap">{item.label}</span>
@@ -194,7 +191,7 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* ── Desktop sidebar (md and up) ── */}
+      {/* ── Desktop sidebar ── */}
       <motion.aside
         initial={false}
         animate={{ width: sidebarCollapsed ? 72 : 240 }}
@@ -204,12 +201,11 @@ export default function Sidebar() {
           background: 'rgba(9,14,26,0.97)',
           backdropFilter: 'blur(20px)',
           borderRight: '1px solid var(--border-subtle)',
-        }}
-      >
+        }}>
         {sidebarContent(false)}
       </motion.aside>
 
-      {/* ── Mobile drawer (below md) ── */}
+      {/* ── Mobile drawer ── */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.aside
@@ -222,8 +218,7 @@ export default function Sidebar() {
               background: 'rgba(9,14,26,0.99)',
               backdropFilter: 'blur(20px)',
               borderRight: '1px solid var(--border-subtle)',
-            }}
-          >
+            }}>
             {sidebarContent(true)}
           </motion.aside>
         )}

@@ -30,15 +30,12 @@ import CategoriesPage   from '@/pages/Categoriespage'
 
 // Utility
 import UtilityReportsPage from '@/pages/UtilityReportsPage'
+import UtilityHistoryPage from '@/pages/UtilityHistoryPage'
 import ReceivedItemsPage  from '@/pages/Receiveditemspage'
 
-// Redirects each role to their correct home dashboard
 function RootRedirect() {
   const { profile, loading } = useAuth()
-
-  // Wait until profile is resolved before redirecting
   if (loading || !profile) return null
-
   if (profile.role === 'utility-admin') return <Navigate to="/utility-dashboard" replace />
   return <Navigate to="/dashboard" replace />
 }
@@ -47,33 +44,29 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* ── Public ─────────────────────────────────────────── */}
+        {/* ── Public ── */}
         <Route path="/login"           element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/scan/:id"        element={<AssetScanPage />} />
 
-        {/* ── Root → role-aware redirect ─────────────────────── */}
-        <Route path="/" element={
-          <ProtectedRoute>
-            <RootRedirect />
-          </ProtectedRoute>
-        } />
+        {/* ── Root redirect ── */}
+        <Route path="/" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
 
-        {/* ── IT Dashboard — tech-admin + it-admin ───────────── */}
+        {/* ── IT Dashboard ── */}
         <Route path="/dashboard" element={
           <ProtectedRoute allowedRoles={['tech-admin', 'it-admin']}>
             <ITDashboardPage />
           </ProtectedRoute>
         } />
 
-        {/* ── Utility Dashboard — tech-admin + utility-admin ─── */}
+        {/* ── Utility Dashboard ── */}
         <Route path="/utility-dashboard" element={
           <ProtectedRoute allowedRoles={['tech-admin', 'utility-admin']}>
             <UtilityDashboardPage />
           </ProtectedRoute>
         } />
 
-        {/* ── IT Assets — tech-admin + it-admin ──────────────── */}
+        {/* ── IT Assets ── */}
         <Route path="/assets" element={
           <ProtectedRoute allowedRoles={['tech-admin', 'it-admin']}>
             <ITAssetsPage />
@@ -85,20 +78,27 @@ export default function App() {
           </ProtectedRoute>
         } />
 
-        {/* ── Utility Assets — tech-admin + utility-admin ──────  */}
+        {/* ── Utility Assets ── */}
         <Route path="/utility-assets" element={
           <ProtectedRoute allowedRoles={['tech-admin', 'utility-admin']}>
             <UtilityAssetsPage />
           </ProtectedRoute>
         } />
 
-        {/* ── Shared (all logged-in roles) ───────────────────── */}
-        <Route path="/buildings"    element={<ProtectedRoute><BuildingsPage /></ProtectedRoute>} />
-        <Route path="/profile"      element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="/notifications"element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
-        <Route path="/settings"     element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        {/* ── Utility History (Incident + Repair) ── */}
+        <Route path="/utility-history" element={
+          <ProtectedRoute allowedRoles={['tech-admin', 'utility-admin']}>
+            <UtilityHistoryPage />
+          </ProtectedRoute>
+        } />
 
-        {/* ── IT + Tech-Admin ────────────────────────────────── */}
+        {/* ── Shared ── */}
+        <Route path="/buildings"     element={<ProtectedRoute><BuildingsPage /></ProtectedRoute>} />
+        <Route path="/profile"       element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+        <Route path="/settings"      element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+
+        {/* ── IT + Tech-Admin ── */}
         <Route path="/maintenance" element={
           <ProtectedRoute allowedRoles={['tech-admin', 'it-admin']}>
             <MaintenancePage />
@@ -115,7 +115,7 @@ export default function App() {
           </ProtectedRoute>
         } />
 
-        {/* ── Tech-Admin only ────────────────────────────────── */}
+        {/* ── Tech-Admin only ── */}
         <Route path="/users" element={
           <ProtectedRoute allowedRoles={['tech-admin']}>
             <UsersPage />
@@ -127,26 +127,22 @@ export default function App() {
           </ProtectedRoute>
         } />
 
-        {/* ── Received Items — tech-admin + it-admin ────────── */}
+        {/* ── Received Items ── */}
         <Route path="/received-items" element={
           <ProtectedRoute allowedRoles={['tech-admin', 'it-admin']}>
             <ReceivedItemsPage />
           </ProtectedRoute>
         } />
 
-        {/* ── Utility + Tech-Admin ───────────────────────────── */}
+        {/* ── Utility Reports ── */}
         <Route path="/utility-reports" element={
           <ProtectedRoute allowedRoles={['tech-admin', 'utility-admin']}>
             <UtilityReportsPage />
           </ProtectedRoute>
         } />
 
-        {/* ── 404 — redirect to role home ────────────────────── */}
-        <Route path="*" element={
-          <ProtectedRoute>
-            <RootRedirect />
-          </ProtectedRoute>
-        } />
+        {/* ── 404 ── */}
+        <Route path="*" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
       </Routes>
     </AuthProvider>
   )
