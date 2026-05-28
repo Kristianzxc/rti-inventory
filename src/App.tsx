@@ -31,7 +31,6 @@ import CategoriesPage   from '@/pages/Categoriespage'
 
 // Utility
 import UtilityReportsPage from '@/pages/UtilityReportsPage'
-import UtilityHistoryPage from '@/pages/UtilityHistoryPage'
 import ReceivedItemsPage  from '@/pages/Receiveditemspage'
 
 function RootRedirect() {
@@ -93,12 +92,6 @@ export default function App() {
           </ProtectedRoute>
         } />
 
-        {/* ── Utility History (Incident + Repair) ── */}
-        <Route path="/utility-history" element={
-          <ProtectedRoute allowedRoles={['tech-admin', 'utility-admin']}>
-            <UtilityHistoryPage />
-          </ProtectedRoute>
-        } />
 
         {/* ── Shared ── */}
         <Route path="/buildings"     element={<ProtectedRoute><BuildingsPage /></ProtectedRoute>} />

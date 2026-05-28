@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Armchair, Wrench, Archive, Building2, Clock, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Armchair, FlaskConical, Archive, Building2, Clock, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import StatCard from '@/components/dashboard/StatCard'
@@ -116,7 +116,7 @@ export default function UtilityDashboardPage() {
   const statCards = [
     { title: 'Total Items',       value: stats?.totalAssets    ?? 0, icon: Armchair,      color: '#10b981', gradient: 'linear-gradient(135deg,#10b981,#06b6d4)' },
     { title: 'Working',           value: working,                    icon: CheckCircle,   color: '#3b82f6', gradient: 'linear-gradient(135deg,#3b82f6,#6366f1)' },
-    { title: 'In Maintenance',    value: stats?.maintenanceAssets ?? 0, icon: Wrench,     color: '#f59e0b', gradient: 'linear-gradient(135deg,#f59e0b,#f97316)' },
+    { title: 'For Testing',        value: conditionCounts?.['For Testing'] ?? 0, icon: FlaskConical, color: '#f59e0b', gradient: 'linear-gradient(135deg,#f59e0b,#f97316)' },
     { title: 'Damaged/Defective', value: damaged,                    icon: AlertTriangle, color: '#ef4444', gradient: 'linear-gradient(135deg,#ef4444,#f97316)' },
     { title: 'Buildings',         value: stats?.buildingsCount ?? 0, icon: Building2,     color: '#8b5cf6', gradient: 'linear-gradient(135deg,#8b5cf6,#ec4899)' },
     { title: 'For Disposal',      value: forDisp,                    icon: Archive,       color: '#94a3b8', gradient: 'linear-gradient(135deg,#94a3b8,#64748b)' },

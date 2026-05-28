@@ -11,26 +11,31 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const { sidebarCollapsed } = useUIStore()
-  const marginLeft = sidebarCollapsed ? 72 : 240
+  const sidebarWidth = sidebarCollapsed ? '72px' : '240px'
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Sidebar />
       <TopNav title={title} />
-      <motion.main
-        animate={{ marginLeft }}
-        transition={{ duration: 0.25, ease: 'easeInOut' }}
-        className="pt-16 min-h-screen"
+
+      {/*
+        .dashboard-main sets margin-left via CSS var on desktop.
+        On mobile (<768px) globals.css forces margin-left: 0 so the
+        sidebar overlay doesn't push content off-screen.
+      */}
+      <main
+        className="dashboard-main pt-16 min-h-screen"
+        style={{ '--sidebar-width': sidebarWidth } as React.CSSProperties}
       >
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="p-6"
+          className="p-4 md:p-6"
         >
           {children}
         </motion.div>
-      </motion.main>
+      </main>
     </div>
   )
 }

@@ -359,60 +359,58 @@ input[type="range"]::-webkit-slider-thumb {
   transform: translateY(0);
   transition: opacity 300ms ease, transform 300ms ease;
 }
-  /* ── Mobile responsive overrides ──────────────────────────── */
-  @media (max-width: 767px) {
-    .glass-card {
-      border-radius: 12px;
-    }
+/* ── Dashboard main: sidebar offset on desktop only ─────────── */
+.dashboard-main {
+  margin-left: var(--sidebar-width, 240px);
+  transition: margin-left 0.25s ease;
+}
 
-    /* Tables scroll horizontally on mobile */
-    .overflow-x-auto {
-      -webkit-overflow-scrolling: touch;
-    }
-
-    /* Stack grid columns on mobile */
-    .grid-cols-2 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    /* Tighter page padding */
-    .p-6 {
-      padding: 1rem;
-    }
-
-    /* Make stat cards wrap nicely */
-    .xl\:grid-cols-6 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .md\:grid-cols-2 {
-      grid-template-columns: repeat(1, minmax(0, 1fr));
-    }
-
-    .lg\:grid-cols-2 {
-      grid-template-columns: repeat(1, minmax(0, 1fr));
-    }
-
-    /* Btn sizing on mobile */
-    .btn-primary, .btn-secondary {
-      padding: 0.5rem 0.875rem;
-      font-size: 13px;
-    }
-
-    /* Input fields full width */
-    .input-field, .select-field {
-      font-size: 16px; /* prevents iOS zoom */
-    }
-
-    /* Modal full-screen on mobile */
-    .fixed.inset-0.z-50 > div[class*="max-w"] {
-      max-width: 100%;
-      margin: 0;
-      border-radius: 16px 16px 0 0;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      max-height: 92vh;
-    }
+/* ── Mobile responsive overrides ──────────────────────────── */
+@media (max-width: 767px) {
+  /* On mobile the sidebar is a drawer overlay — no margin */
+  .dashboard-main {
+    margin-left: 0 !important;
   }
+
+  .glass-card {
+    border-radius: 12px;
+  }
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .p-6 {
+    padding: 1rem;
+  }
+
+  .xl\:grid-cols-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .md\:grid-cols-2,
+  .lg\:grid-cols-2,
+  .lg\:grid-cols-3 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .btn-primary, .btn-secondary, .btn-danger {
+    padding: 0.5rem 0.875rem;
+    font-size: 13px;
+  }
+
+  .input-field, .select-field {
+    font-size: 16px;
+  }
+
+  .fixed.inset-0.z-50 > div[class*="max-w"] {
+    max-width: 100%;
+    margin: 0;
+    border-radius: 16px 16px 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 92vh;
+  }
+}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Building2, Users, BarChart3,
   FileText, Settings, Wrench, Layers, ChevronLeft,
-  Bell, Cpu, Armchair, ArrowLeftRight, Tag, PackageCheck, X, LogOut, History,ShoppingCart
+  Bell, Cpu, Armchair, ArrowLeftRight, Tag, PackageCheck, X, LogOut
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useUIStore } from '@/store'
@@ -27,8 +27,6 @@ const IT_ADMIN_EXTRA = [
 const UTILITY_NAV = [
   { label: 'Dashboard',       icon: LayoutDashboard, path: '/utility-dashboard' },
   { label: 'Utility Assets',  icon: Armchair,        path: '/utility-assets' },
-  { label: 'History',         icon: History,         path: '/utility-history' },
-  { label: 'Consumables',     icon: ShoppingCart,    path: '/consumables' },
   { label: 'Buildings',       icon: Building2,       path: '/buildings' },
   { label: 'Categories',      icon: Tag,             path: '/categories' },
   { label: 'Utility Reports', icon: FileText,        path: '/utility-reports' },
