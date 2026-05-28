@@ -60,7 +60,6 @@ function ConsumableFormModal({
   const [form, setForm] = useState({
     item_type: initial?.item_type || '',
     description: initial?.description || '',
-    volume: initial?.volume || '',
     unit: initial?.unit || 'pcs',
     low_stock_threshold: initial?.low_stock_threshold ?? 5,
     type: initial?.type || type,
@@ -129,7 +128,7 @@ function ConsumableFormModal({
               <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                 Item Type <span className="text-rose-400">*</span>
               </label>
-              <input className="input-field" placeholder="e.g. Ballpen, Marker, Lubricant" value={form.item_type}
+              <input className="input-field" placeholder="e.g. Ballpen, Marker, Folder" value={form.item_type}
                 onChange={e => set('item_type', e.target.value)} required />
             </div>
 
@@ -142,22 +141,13 @@ function ConsumableFormModal({
                 onChange={e => set('description', e.target.value)} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                  Volume / Size
-                </label>
-                <input className="input-field" placeholder="e.g. 500ml, A4, Large"
-                  value={form.volume} onChange={e => set('volume', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                  Unit
-                </label>
-                <select className="select-field" value={form.unit} onChange={e => set('unit', e.target.value)}>
-                  {units.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Unit
+              </label>
+              <select className="select-field" value={form.unit} onChange={e => set('unit', e.target.value)}>
+                {units.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
             </div>
 
             <div>
@@ -758,7 +748,6 @@ export default function ConsumablesPage() {
                   {[
                     { label: 'Item Type',    field: 'item_type' },
                     { label: 'Description', field: 'description' },
-                    { label: 'Volume',       field: 'volume' },
                     { label: 'Unit',         field: 'unit' },
                     { label: 'Current Stock',field: 'current_stock' },
                     { label: 'Status',       field: null },
@@ -780,11 +769,11 @@ export default function ConsumablesPage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan={9} className="text-center py-12">
+                  <tr><td colSpan={8} className="text-center py-12">
                     <div className="flex justify-center"><div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>
                   </td></tr>
                 ) : items.length === 0 ? (
-                  <tr><td colSpan={9} className="text-center py-16">
+                  <tr><td colSpan={8} className="text-center py-16">
                     <Package size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                       {search || filterStock !== 'all' ? 'No items match your filters.' : `No ${activeTab} consumables yet. Add one to get started.`}
@@ -817,11 +806,6 @@ export default function ConsumablesPage() {
                       <td className="px-4 py-3">
                         <span className="text-sm block truncate max-w-[180px]" title={item.description || ''}
                           style={{ color: 'var(--text-secondary)' }}>{item.description || '—'}</span>
-                      </td>
-
-                      {/* Volume */}
-                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {item.volume || '—'}
                       </td>
 
                       {/* Unit */}

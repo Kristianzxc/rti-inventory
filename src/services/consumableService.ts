@@ -29,7 +29,6 @@ export const consumableService = {
     type: string
     item_type: string
     description?: string
-    volume?: string
     unit: string
     low_stock_threshold: number
   }) {
@@ -46,7 +45,6 @@ export const consumableService = {
   async update(id: string, payload: Partial<{
     item_type: string
     description: string
-    volume: string
     unit: string
     low_stock_threshold: number
   }>) {

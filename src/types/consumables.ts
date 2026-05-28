@@ -8,7 +8,6 @@ export interface Consumable {
   type: ConsumableType
   item_type: string
   description: string | null
-  volume: string | null
   unit: string
   current_stock: number
   low_stock_threshold: number
