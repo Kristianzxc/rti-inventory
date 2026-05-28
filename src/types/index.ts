@@ -30,6 +30,7 @@ export type AssetStatus = 'active' | 'defective' | 'maintenance' | 'disposed'
 export type AssetCondition = 'excellent' | 'good' | 'fair' | 'poor'
 export type AssetDomain = 'it' | 'utility'
 
+
 export type UtilityCondition =
   | 'Working - Assigned'
   | 'Working - In Storage'
@@ -182,6 +183,8 @@ export interface FilterState {
   dateTo: string
 }
 
+
+
 export interface PaginationState {
   page: number
   pageSize: number
@@ -199,3 +202,5 @@ export const UTILITY_CATEGORIES = [
   'Chairs', 'Tables', 'Stand Fans', 'Cabinets',
   'Whiteboards', 'Air Conditioners', 'Projectors',
 ]
+
+export type { Consumable, ConsumableRestock, ConsumableWithdrawal, ConsumableType } from './consumables'

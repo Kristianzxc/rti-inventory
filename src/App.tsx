@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import ProtectedRoute from '@/routes/ProtectedRoute'
+import ConsumablesPage from '@/pages/ConsumablesPage'
 
 // Public
 import LoginPage          from '@/pages/LoginPage'
@@ -77,6 +78,13 @@ export default function App() {
             <AssetDetailPage />
           </ProtectedRoute>
         } />
+
+        {/* ── Consumables (Utility + Tech-Admin) ── */}
+   <Route path="/consumables" element={
+    <ProtectedRoute allowedRoles={['tech-admin', 'utility-admin']}>
+     <ConsumablesPage />
+    </ProtectedRoute>
+  } />
 
         {/* ── Utility Assets ── */}
         <Route path="/utility-assets" element={
